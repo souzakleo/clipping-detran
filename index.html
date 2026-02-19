@@ -1,169 +1,604 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<title>Clipping Detran-MA</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Clipping Detran-MA</title>
 
-<style>
-body{font-family:Segoe UI;background:#eef2f7;margin:0;padding:20px;}
-.container{max-width:1500px;margin:auto;}
-.header{background:linear-gradient(135deg,#1e40af,#0ea5e9);color:white;padding:20px;border-radius:12px;text-align:center;margin-bottom:20px;}
-.card{background:white;padding:15px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.08);margin-bottom:20px;}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;}
-.kpi{background:#2563eb;color:white;padding:12px;border-radius:8px;text-align:center;}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:20px;}
-table{width:100%;border-collapse:collapse;font-size:14px;}
-th,td{padding:6px;border-bottom:1px solid #e2e8f0;}
-th{background:#2563eb;color:white;}
-tr:hover{background:#f1f5f9;}
-button{background:#2563eb;color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;}
-</style>
+  <!-- Bibliotecas -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#eef2f7;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#64748b;
+      --primary:#2563eb;
+      --primary2:#0ea5e9;
+      --border:#cbd5e1;
+      --shadow:0 6px 18px rgba(2,6,23,.08);
+      --radius:14px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      padding:20px;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      background:var(--bg);
+      color:var(--text);
+    }
+    .container{max-width:1650px;margin:0 auto;}
+
+    .header{
+      background:linear-gradient(135deg, #1e40af, var(--primary2));
+      color:#fff;
+      padding:18px 20px;
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:18px;
+    }
+    .header h1{margin:0;font-size:22px;letter-spacing:.2px}
+    .header .sub{font-size:12px;opacity:.9;margin-top:4px}
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;
+      background:rgba(255,255,255,.14);
+      border:1px solid rgba(255,255,255,.22);
+      padding:8px 10px;border-radius:999px;
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .card{
+      background:var(--card);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px;
+      margin-bottom:18px;
+    }
+
+    .controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:end;
+    }
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width:190px;
+    }
+    .field label{
+      font-size:12px;color:var(--muted);
+    }
+    select,input{
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      outline:none;
+      background:#fff;
+      font-size:14px;
+    }
+    input::placeholder{color:#94a3b8}
+    .btnrow{display:flex;gap:8px;flex-wrap:wrap}
+    button{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid transparent;
+      background:var(--primary);
+      color:#fff;
+      cursor:pointer;
+      font-weight:600;
+      font-size:14px;
+    }
+    button.secondary{
+      background:#fff;
+      color:var(--primary);
+      border-color:var(--border);
+    }
+    button:disabled{opacity:.6;cursor:not-allowed}
+
+    .kpis{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:12px;
+      margin-bottom:18px;
+    }
+    .kpi{
+      background:linear-gradient(135deg, var(--primary), var(--primary2));
+      color:#fff;
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-height:92px;
+    }
+    .kpi .label{font-size:12px;opacity:.9}
+    .kpi .value{font-size:26px;font-weight:800;line-height:1}
+    .kpi .hint{font-size:12px;opacity:.9}
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(420px,1fr));
+      gap:14px;
+      margin-bottom:18px;
+    }
+    .card h3{
+      margin:0 0 10px 0;
+      font-size:15px;
+    }
+
+    .status{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:8px;
+    }
+    .status.ok{color:#0f766e}
+    .status.err{color:#b91c1c}
+
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      font-size:13px;
+      overflow:hidden;
+      border-radius:12px;
+      border:1px solid #e2e8f0;
+    }
+    thead th{
+      background:var(--primary);
+      color:#fff;
+      text-align:left;
+      padding:10px 10px;
+      font-weight:700;
+      position:sticky;
+      top:0;
+      z-index:1;
+    }
+    tbody td{
+      padding:9px 10px;
+      border-top:1px solid #e2e8f0;
+      color:#0f172a;
+      vertical-align:top;
+    }
+    tbody tr:hover{background:#f8fafc}
+    .rowclick{cursor:pointer}
+    .tablewrap{max-height:420px;overflow:auto;border-radius:12px}
+
+    .detail{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+    }
+    .detail .title{
+      font-size:16px;
+      font-weight:800;
+      margin:0;
+    }
+    .detail .meta{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:8px;
+    }
+    .kv{
+      background:#f8fafc;
+      border:1px solid #e2e8f0;
+      border-radius:12px;
+      padding:10px;
+    }
+    .kv .k{font-size:11px;color:var(--muted);margin-bottom:4px}
+    .kv .v{font-size:13px;font-weight:650;color:#0f172a;word-break:break-word}
+    .linkbtn{
+      display:inline-flex;align-items:center;justify-content:center;
+      text-decoration:none;
+      width:fit-content;
+    }
+  </style>
 </head>
 
 <body>
-<div class="container">
+  <div class="container">
 
-<div class="header">
-<h1>Clipping Detran-MA</h1>
-</div>
+    <div class="header">
+      <div>
+        <h1>Clipping Detran-MA</h1>
+        <div class="sub">Dashboard por mês (Google Sheets → CSV) • Clique em uma matéria para ver detalhes</div>
+      </div>
+      <div class="pill">
+        <span>📄 Colunas:</span>
+        <span><b>Título</b>, Data, Tópico, Impacto, Veículo, Praça, <b>Link</b></span>
+      </div>
+    </div>
 
-<div class="card">
-<select id="mesSelect" onchange="carregarDados()">
-<option value="">Selecione o mês</option>
-<option value="Jan">Janeiro 2026</option>
-<option value="Fev">Fevereiro 2026</option>
-<option value="Mar">Março 2026</option>
-</select>
-</div>
+    <div class="card">
+      <div class="controls">
+        <div class="field">
+          <label>Mês</label>
+          <select id="mesSelect">
+            <option value="">Selecione o mês</option>
+            <option value="Jan">Janeiro 2026</option>
+            <option value="Fev">Fevereiro 2026</option>
+            <option value="Mar">Março 2026</option>
+            <option value="Abr">Abril 2026</option>
+          </select>
+        </div>
 
-<div class="kpis">
-<div class="kpi">Total<br><h2 id="kTotal">0</h2></div>
-<div class="kpi">% Positivo<br><h2 id="kPos">0%</h2></div>
-<div class="kpi">Top Veículo<br><h2 id="kVeiculo">-</h2></div>
-<div class="kpi">Top Tópico<br><h2 id="kTopico">-</h2></div>
-</div>
+        <div class="field" style="min-width:260px;flex:1">
+          <label>Buscar no título</label>
+          <input id="busca" type="text" placeholder="Ex: blitz, campanha, CNH..." />
+        </div>
 
-<div class="grid">
-<div class="card"><canvas id="gImpacto"></canvas></div>
-<div class="card"><canvas id="gTopico"></canvas></div>
-</div>
+        <div class="field">
+          <label>Impacto</label>
+          <select id="fImpacto"></select>
+        </div>
 
-<div class="card">
-<h3>Lista de matérias (clique para ver detalhes)</h3>
-<table id="tabela"></table>
-</div>
+        <div class="field">
+          <label>Veículo</label>
+          <select id="fVeiculo"></select>
+        </div>
 
-<div class="card">
-<h3>Detalhes da Matéria</h3>
-<div id="detalhe">Selecione uma matéria</div>
-</div>
+        <div class="field">
+          <label>Praça</label>
+          <select id="fPraca"></select>
+        </div>
 
-</div>
+        <div class="btnrow">
+          <button id="btnCarregar">Carregar</button>
+          <button class="secondary" id="btnFiltrar">Filtrar</button>
+          <button class="secondary" id="btnLimpar">Limpar</button>
+        </div>
+      </div>
+
+      <div id="status" class="status">Selecione o mês e clique em <b>Carregar</b>.</div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi">
+        <div class="label">Total de matérias</div>
+        <div class="value" id="kTotal">0</div>
+        <div class="hint">na seleção atual</div>
+      </div>
+      <div class="kpi">
+        <div class="label">% Positivas</div>
+        <div class="value" id="kPos">0%</div>
+        <div class="hint">impacto “Positivo”</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Top Veículo</div>
+        <div class="value" id="kVeiculo">-</div>
+        <div class="hint">maior volume</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Top Tópico</div>
+        <div class="value" id="kTopico">-</div>
+        <div class="hint">maior volume</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Impacto</h3>
+        <canvas id="gImpacto"></canvas>
+      </div>
+      <div class="card">
+        <h3>Tópicos</h3>
+        <canvas id="gTopico"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Lista de matérias</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:38%">Título</th>
+              <th style="width:12%">Data</th>
+              <th style="width:18%">Veículo</th>
+              <th style="width:12%">Impacto</th>
+              <th style="width:20%">Praça</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaBody">
+            <tr><td colspan="5">Sem dados</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Detalhes da Matéria</h3>
+      <div id="detalhe" class="detail">
+        <div class="status">Selecione uma matéria na tabela acima.</div>
+      </div>
+    </div>
+
+  </div>
 
 <script>
-
-// COLE AQUI OS LINKS CSV
-const links={
-"Jan":"https://docs.google.com/spreadsheets/d/e/2PACX-1vTQDEoRILXzO3X3rUuRZJV8VaMFuxgiyaqqJbVe7wpEeOxYkoTV1Tl9oWNyK9z4vxCSCdI0Yrbxve_6/pub?gid=553568239&single=true&output=csv",
-"Fev":"LINK_FEV",
-"Mar":"LINK_MAR"
+/**
+ * IMPORTANTÍSSIMO:
+ * Substitua os valores COLE_LINK_* pelos links publicados da sua ABA no Google Sheets,
+ * no formato que termina com:  ...output=csv
+ */
+const links = {
+  "Jan": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTQDEoRILXzO3X3rUuRZJV8VaMFuxgiyaqqJbVe7wpEeOxYkoTV1Tl9oWNyK9z4vxCSCdI0Yrbxve_6/pub?gid=553568239&single=true&output=csv",
+  "Fev": "COLE_LINK_FEV",
+  "Mar": "COLE_LINK_MAR",
+  "Abr": "COLE_LINK_ABR"
 };
 
-let dados=[];
-let charts={};
+let dados = [];
+let dadosFiltrados = [];
+let charts = {};
 
-async function carregarDados(){
-    const mes=mesSelect.value;
-    if(!mes) return;
+// UI helpers
+const $ = (id) => document.getElementById(id);
+const statusEl = $("status");
 
-    const resp=await fetch(links[mes]);
-    const txt=await resp.text();
-
-    const linhas=txt.split("\n").map(l=>l.split(","));
-    const headers=linhas[0];
-
-    dados=linhas.slice(1).map(l=>{
-        let obj={};
-        headers.forEach((h,i)=>obj[h.trim()]=l[i]);
-        return obj;
-    });
-
-    atualizarDashboard();
+function setStatus(msg, kind=""){
+  statusEl.className = "status" + (kind ? " " + kind : "");
+  statusEl.innerHTML = msg;
 }
 
+// Robust CSV load (handles commas/quotes/etc.)
+function carregarDados(){
+  const mes = $("mesSelect").value;
+  if(!mes){
+    setStatus("Selecione um mês antes de carregar.", "err");
+    return;
+  }
+  if(!links[mes] || links[mes].includes("COLE_LINK")){
+    setStatus("Cole o link CSV do mês selecionado na configuração <b>links</b> dentro do HTML.", "err");
+    return;
+  }
+
+  $("btnCarregar").disabled = true;
+  setStatus("Carregando dados do Google Sheets…", "");
+
+  Papa.parse(links[mes], {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    complete: function(results){
+      // Filter out empty rows
+      dados = (results.data || []).filter(r => {
+        const t = (r["Título"] ?? "").toString().trim();
+        return t.length > 0;
+      });
+      dadosFiltrados = [...dados];
+
+      atualizarFiltros();
+      atualizarDashboard();
+      $("btnCarregar").disabled = false;
+
+      setStatus(`Dados carregados: <b>${dados.length}</b> registros. Agora você pode filtrar e clicar nas matérias.`, "ok");
+    },
+    error: function(err){
+      $("btnCarregar").disabled = false;
+      console.error(err);
+      setStatus("Erro ao carregar CSV. Verifique se o link está publicado como CSV e público.", "err");
+    }
+  });
+}
+
+function normalize(v){
+  return (v ?? "").toString().trim();
+}
+
+function distinctValues(col){
+  return [...new Set(dados.map(d => normalize(d[col])).filter(v => v))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+}
+
+function preencherSelect(id, col){
+  const el = $(id);
+  const vals = distinctValues(col);
+  el.innerHTML = `<option value="">Todos ${col}</option>` + vals.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+}
+
+function atualizarFiltros(){
+  preencherSelect("fImpacto","Impacto");
+  preencherSelect("fVeiculo","Veículo");
+  preencherSelect("fPraca","Praça");
+}
+
+function aplicarFiltros(){
+  const busca = $("busca").value.toLowerCase();
+  const impacto = $("fImpacto").value;
+  const veiculo = $("fVeiculo").value;
+  const praca = $("fPraca").value;
+
+  dadosFiltrados = dados.filter(d => {
+    const titulo = normalize(d["Título"]).toLowerCase();
+
+    const okBusca = !busca || titulo.includes(busca);
+    const okImpacto = !impacto || normalize(d["Impacto"]) === impacto;
+    const okVeiculo = !veiculo || normalize(d["Veículo"]) === veiculo;
+    const okPraca = !praca || normalize(d["Praça"]) === praca;
+
+    return okBusca && okImpacto && okVeiculo && okPraca;
+  });
+
+  atualizarDashboard();
+  setStatus(`Filtro aplicado. Exibindo <b>${dadosFiltrados.length}</b> registros.`, "ok");
+}
+
+function limparFiltros(){
+  $("busca").value = "";
+  $("fImpacto").value = "";
+  $("fVeiculo").value = "";
+  $("fPraca").value = "";
+  dadosFiltrados = [...dados];
+  atualizarDashboard();
+  setStatus(`Filtros limpos. Exibindo <b>${dadosFiltrados.length}</b> registros.`, "ok");
+}
+
+// KPIs / counting
 function contar(col){
-    const c={};
-    dados.forEach(d=>{
-        const v=d[col]||"Sem dado";
-        c[v]=(c[v]||0)+1;
-    });
-    return c;
+  const c = {};
+  for (const d of dadosFiltrados){
+    const v = normalize(d[col]) || "Sem dado";
+    c[v] = (c[v] || 0) + 1;
+  }
+  return c;
 }
-
-function top(obj){
-    return Object.entries(obj).sort((a,b)=>b[1]-a[1])[0]?.[0]||"-";
+function topItem(obj){
+  const e = Object.entries(obj).sort((a,b)=>b[1]-a[1])[0];
+  return e ? e[0] : "-";
 }
 
 function atualizarKPIs(){
-    document.getElementById("kTotal").innerText=dados.length;
-    const imp=contar("Impacto");
-    const pos=imp["Positivo"]||0;
-    document.getElementById("kPos").innerText=dados.length?Math.round(pos/dados.length*100)+"%":"0%";
-    document.getElementById("kVeiculo").innerText=top(contar("Veículo"));
-    document.getElementById("kTopico").innerText=top(contar("Tópico"));
+  $("kTotal").textContent = String(dadosFiltrados.length);
+
+  const imp = contar("Impacto");
+  const pos = (imp["Positivo"] || imp["positivo"] || 0);
+  const perc = dadosFiltrados.length ? Math.round((pos / dadosFiltrados.length) * 100) : 0;
+  $("kPos").textContent = `${perc}%`;
+
+  $("kVeiculo").textContent = topItem(contar("Veículo"));
+  $("kTopico").textContent = topItem(contar("Tópico"));
 }
 
-function grafico(id,data,tipo){
-    if(charts[id]) charts[id].destroy();
-    charts[id]=new Chart(document.getElementById(id),{
-        type:tipo,
-        data:{labels:Object.keys(data),datasets:[{data:Object.values(data)}]},
-        options:{responsive:true}
-    });
+// Charts (no fixed colors requirement? user asked vivid modern; we'll let Chart.js default palette by dataset; but pie needs colors.
+// We'll rely on Chart.js default colors? It doesn't auto-color pie slices well.
+// We'll set a modern palette.)
+const palette = ["#2563eb","#0ea5e9","#22c55e","#f59e0b","#ef4444","#a855f7","#14b8a6","#fb7185","#84cc16","#f97316"];
+
+function grafico(id, data, tipo){
+  if(charts[id]) charts[id].destroy();
+
+  const labels = Object.keys(data);
+  const values = Object.values(data);
+  const bg = labels.map((_,i)=>palette[i % palette.length]);
+
+  charts[id] = new Chart($(id),{
+    type: tipo,
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: (tipo === "bar") ? bg[0] : bg
+      }]
+    },
+    options: {
+      responsive:true,
+      plugins: {
+        legend: { display: tipo !== "bar" }
+      },
+      scales: (tipo === "bar") ? { y: { beginAtZero:true } } : {}
+    }
+  });
 }
 
+// Table + details
 function atualizarTabela(){
-    const tabela=document.getElementById("tabela");
-    if(dados.length==0){tabela.innerHTML="";return;}
+  const tbody = $("tabelaBody");
+  if(dadosFiltrados.length === 0){
+    tbody.innerHTML = `<tr><td colspan="5">Sem dados</td></tr>`;
+    $("detalhe").innerHTML = `<div class="status">Selecione uma matéria na tabela acima.</div>`;
+    return;
+  }
 
-    const cols=["Título","Data","Veículo","Impacto","Praça"];
-    let html="<tr>";
-    cols.forEach(c=>html+=`<th>${c}</th>`);
-    html+="</tr>";
+  tbody.innerHTML = dadosFiltrados.map((d,i)=>{
+    return `
+      <tr class="rowclick" data-idx="${i}">
+        <td>${escapeHtml(normalize(d["Título"]))}</td>
+        <td>${escapeHtml(normalize(d["Data"]))}</td>
+        <td>${escapeHtml(normalize(d["Veículo"]))}</td>
+        <td>${escapeHtml(normalize(d["Impacto"]))}</td>
+        <td>${escapeHtml(normalize(d["Praça"]))}</td>
+      </tr>
+    `;
+  }).join("");
 
-    dados.forEach((d,i)=>{
-        html+=`<tr onclick="mostrarDetalhe(${i})" style="cursor:pointer">`;
-        cols.forEach(c=>html+=`<td>${d[c]||""}</td>`);
-        html+="</tr>";
+  // click handler
+  tbody.querySelectorAll("tr.rowclick").forEach(tr=>{
+    tr.addEventListener("click", ()=>{
+      const idx = Number(tr.getAttribute("data-idx"));
+      mostrarDetalhe(idx);
     });
-
-    tabela.innerHTML=html;
+  });
 }
 
 function mostrarDetalhe(i){
-    const d=dados[i];
-    document.getElementById("detalhe").innerHTML=`
-    <b>Título:</b> ${d["Título"]}<br>
-    <b>Data:</b> ${d["Data"]}<br>
-    <b>Veículo:</b> ${d["Veículo"]}<br>
-    <b>Impacto:</b> ${d["Impacto"]}<br>
-    <b>Praça:</b> ${d["Praça"]}<br><br>
-    <a href="${d["Link"]}" target="_blank">
+  const d = dadosFiltrados[i];
+  if(!d) return;
+
+  const titulo = normalize(d["Título"]);
+  const link = normalize(d["Link"]);
+  const data = normalize(d["Data"]);
+  const topico = normalize(d["Tópico"]);
+  const veiculo = normalize(d["Veículo"]);
+  const impacto = normalize(d["Impacto"]);
+  const praca = normalize(d["Praça"]);
+
+  $("detalhe").innerHTML = `
+    <p class="title">${escapeHtml(titulo || "-")}</p>
+    <div class="meta">
+      ${kv("Data", data)}
+      ${kv("Tópico", topico)}
+      ${kv("Veículo", veiculo)}
+      ${kv("Impacto", impacto)}
+      ${kv("Praça", praca)}
+    </div>
+    ${link ? `
+      <a class="linkbtn" href="${escapeAttr(link)}" target="_blank" rel="noopener">
         <button>Abrir matéria</button>
-    </a>
-    `;
+      </a>
+    ` : `<div class="status err">Sem link disponível para esta matéria.</div>`}
+  `;
 }
 
+function kv(k,v){
+  return `
+    <div class="kv">
+      <div class="k">${escapeHtml(k)}</div>
+      <div class="v">${escapeHtml(v || "-")}</div>
+    </div>
+  `;
+}
+
+// Update everything
 function atualizarDashboard(){
-    atualizarKPIs();
-    grafico("gImpacto",contar("Impacto"),"pie");
-    grafico("gTopico",contar("Tópico"),"bar");
-    atualizarTabela();
+  atualizarKPIs();
+  grafico("gImpacto", contar("Impacto"), "pie");
+  grafico("gTopico", contar("Tópico"), "bar");
+  atualizarTabela();
 }
-</script>
 
+// basic escaping
+function escapeHtml(str){
+  return (str ?? "").toString()
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+function escapeAttr(str){
+  // minimal attr escaping
+  return escapeHtml(str).replaceAll("`","&#096;");
+}
+
+// Wire buttons
+$("btnCarregar").addEventListener("click", carregarDados);
+$("btnFiltrar").addEventListener("click", aplicarFiltros);
+$("btnLimpar").addEventListener("click", limparFiltros);
+
+// Enter to filter on search
+$("busca").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") aplicarFiltros();
+});
+</script>
 </body>
 </html>
-
