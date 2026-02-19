@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Clipping Detran-MA</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{font-family:Segoe UI;background:#eef2f7;margin:0;padding:20px;}
+.container{max-width:1500px;margin:auto;}
+.header{background:linear-gradient(135deg,#1e40af,#0ea5e9);color:white;padding:20px;border-radius:12px;text-align:center;margin-bottom:20px;}
+.card{background:white;padding:15px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.08);margin-bottom:20px;}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;}
+.kpi{background:#2563eb;color:white;padding:12px;border-radius:8px;text-align:center;}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:20px;}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+th,td{padding:6px;border-bottom:1px solid #e2e8f0;}
+th{background:#2563eb;color:white;}
+tr:hover{background:#f1f5f9;}
+button{background:#2563eb;color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<div class="header">
+<h1>Clipping Detran-MA</h1>
+</div>
+
+<div class="card">
+<select id="mesSelect" onchange="carregarDados()">
+<option value="">Selecione o mês</option>
+<option value="Jan">Janeiro 2026</option>
+<option value="Fev">Fevereiro 2026</option>
+<option value="Mar">Março 2026</option>
+</select>
+</div>
+
+<div class="kpis">
+<div class="kpi">Total<br><h2 id="kTotal">0</h2></div>
+<div class="kpi">% Positivo<br><h2 id="kPos">0%</h2></div>
+<div class="kpi">Top Veículo<br><h2 id="kVeiculo">-</h2></div>
+<div class="kpi">Top Tópico<br><h2 id="kTopico">-</h2></div>
+</div>
+
+<div class="grid">
+<div class="card"><canvas id="gImpacto"></canvas></div>
+<div class="card"><canvas id="gTopico"></canvas></div>
+</div>
+
+<div class="card">
+<h3>Lista de matérias (clique para ver detalhes)</h3>
+<table id="tabela"></table>
+</div>
+
+<div class="card">
+<h3>Detalhes da Matéria</h3>
+<div id="detalhe">Selecione uma matéria</div>
+</div>
+
+</div>
+
+<script>
+
+// COLE AQUI OS LINKS CSV
+const links={
+"Jan":"https://docs.google.com/spreadsheets/d/e/2PACX-1vTQDEoRILXzO3X3rUuRZJV8VaMFuxgiyaqqJbVe7wpEeOxYkoTV1Tl9oWNyK9z4vxCSCdI0Yrbxve_6/pub?output=csv",
+"Fev":"LINK_FEV",
+"Mar":"LINK_MAR"
+};
+
+let dados=[];
+let charts={};
+
+async function carregarDados(){
+    const mes=mesSelect.value;
+    if(!mes) return;
+
+    const resp=await fetch(links[mes]);
+    const txt=await resp.text();
+
+    const linhas=txt.split("\n").map(l=>l.split(","));
+    const headers=linhas[0];
+
+    dados=linhas.slice(1).map(l=>{
+        let obj={};
+        headers.forEach((h,i)=>obj[h.trim()]=l[i]);
+        return obj;
+    });
+
+    atualizarDashboard();
+}
+
+function contar(col){
+    const c={};
+    dados.forEach(d=>{
+        const v=d[col]||"Sem dado";
+        c[v]=(c[v]||0)+1;
+    });
+    return c;
+}
+
+function top(obj){
+    return Object.entries(obj).sort((a,b)=>b[1]-a[1])[0]?.[0]||"-";
+}
+
+function atualizarKPIs(){
+    document.getElementById("kTotal").innerText=dados.length;
+    const imp=contar("Impacto");
+    const pos=imp["Positivo"]||0;
+    document.getElementById("kPos").innerText=dados.length?Math.round(pos/dados.length*100)+"%":"0%";
+    document.getElementById("kVeiculo").innerText=top(contar("Veículo"));
+    document.getElementById("kTopico").innerText=top(contar("Tópico"));
+}
+
+function grafico(id,data,tipo){
+    if(charts[id]) charts[id].destroy();
+    charts[id]=new Chart(document.getElementById(id),{
+        type:tipo,
+        data:{labels:Object.keys(data),datasets:[{data:Object.values(data)}]},
+        options:{responsive:true}
+    });
+}
+
+function atualizarTabela(){
+    const tabela=document.getElementById("tabela");
+    if(dados.length==0){tabela.innerHTML="";return;}
+
+    const cols=["Título","Data","Veículo","Impacto","Praça"];
+    let html="<tr>";
+    cols.forEach(c=>html+=`<th>${c}</th>`);
+    html+="</tr>";
+
+    dados.forEach((d,i)=>{
+        html+=`<tr onclick="mostrarDetalhe(${i})" style="cursor:pointer">`;
+        cols.forEach(c=>html+=`<td>${d[c]||""}</td>`);
+        html+="</tr>";
+    });
+
+    tabela.innerHTML=html;
+}
+
+function mostrarDetalhe(i){
+    const d=dados[i];
+    document.getElementById("detalhe").innerHTML=`
+    <b>Título:</b> ${d["Título"]}<br>
+    <b>Data:</b> ${d["Data"]}<br>
+    <b>Veículo:</b> ${d["Veículo"]}<br>
+    <b>Impacto:</b> ${d["Impacto"]}<br>
+    <b>Praça:</b> ${d["Praça"]}<br><br>
+    <a href="${d["Link"]}" target="_blank">
+        <button>Abrir matéria</button>
+    </a>
+    `;
+}
+
+function atualizarDashboard(){
+    atualizarKPIs();
+    grafico("gImpacto",contar("Impacto"),"pie");
+    grafico("gTopico",contar("Tópico"),"bar");
+    atualizarTabela();
+}
+</script>
+
+</body>
+</html>
