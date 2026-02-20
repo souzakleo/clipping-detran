@@ -46,16 +46,13 @@ button.secondary{background:#e2e8f0;color:#0f172a}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:15px;}
 
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:#2563eb;color:white;padding:8px;text-align:left;user-select:none}
+th{background:#2563eb;color:white;padding:8px;text-align:left}
 td{padding:8px;border-top:1px solid #e2e8f0}
 a{color:#0f172a;text-decoration:none;font-weight:600}
 a:hover{color:#2563eb;text-decoration:underline}
 
-th.sortable{cursor:pointer;}
-th.sortable:hover{filter:brightness(0.95);}
-.sort-indicator{opacity:.9;font-weight:800;margin-left:6px}
-
 #status{margin-top:10px;font-size:12px;color:#475569}
+.small-note{font-size:12px;color:#64748b;margin-top:6px}
 </style>
 </head>
 
@@ -71,7 +68,7 @@ th.sortable:hover{filter:brightness(0.95);}
 
   <div class="card">
     <div class="controls">
-      <div class="field">Busca por assunto<input id="busca"></div>
+      <div class="field">Busca por assunto<input id="busca" placeholder="Digite e clique Filtrar"></div>
       <div class="field">Data inicial<input type="date" id="dataIni"></div>
       <div class="field">Data final<input type="date" id="dataFim"></div>
       <div class="field">Impacto<select id="fImpacto"></select></div>
@@ -97,16 +94,21 @@ th.sortable:hover{filter:brightness(0.95);}
   </div>
 
   <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap;">
+    <div style="display:flex;justify-content:space-between;align-items:end;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
       <h3 style="margin:0;">Lista de matérias</h3>
-      <button id="btnOrdenar" class="secondary">Mais recente ↓</button>
+
+      <!-- ✅ Seletor de data da LISTA (substitui ordenação) -->
+      <div class="field" style="min-width:220px;">
+        <label>Data (lista)</label>
+        <select id="fDataLista"></select>
+      </div>
     </div>
 
     <table>
       <thead>
         <tr>
           <th>Título</th>
-          <th id="thData" class="sortable">Data <span id="indData" class="sort-indicator">↓</span></th>
+          <th>Data</th>
           <th>Veículo</th>
           <th>Impacto</th>
           <th>Local (praça)</th>
@@ -114,6 +116,8 @@ th.sortable:hover{filter:brightness(0.95);}
       </thead>
       <tbody id="tb"></tbody>
     </table>
+
+    <div class="small-note">Dica: use “Data inicial” e “Data final” para período e “Data (lista)” para ver um dia específico.</div>
   </div>
 
 </div>
@@ -121,22 +125,62 @@ th.sortable:hover{filter:brightness(0.95);}
 <script>
 const URL_CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vTQDEoRILXzO3X3rUuRZJV8VaMFuxgiyaqqJbVe7wpEeOxYkoTV1Tl9oWNyK9z4vxCSCdI0Yrbxve_6/pub?gid=553568239&single=true&output=csv";
 
-let dados=[], base=[], filtrados=[], ordemDesc=true, charts={};
+let dados=[], base=[], filtrados=[], charts={};
+
+// nomes reais das colunas detectadas no CSV (evita problema do Local)
+let COL = {
+  titulo: "Título",
+  data: "Data",
+  topico: "Tópico",
+  impacto: "Impacto",
+  veiculo: "Veículo",
+  praca: "Local (praça)",
+  link: "Link"
+};
 
 const $ = (id)=>document.getElementById(id);
 
-// Normalização forte (remove espaços extras e caracteres invisíveis)
+function setStatus(msg){ $("status").innerHTML = msg || ""; }
+
+// Normalização
 function norm(v){
   return (v ?? "")
     .toString()
     .replace(/\uFEFF/g,"")   // BOM
-    .replace(/\u00A0/g," ")  // espaço "duro"
+    .replace(/\u00A0/g," ")  // espaço duro
     .trim();
 }
+function normCmp(v){ return norm(v).toLowerCase(); }
+function stripAccents(s){
+  return norm(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+}
+function keyNorm(s){
+  return stripAccents(s).toLowerCase().replace(/\s+/g,"").replace(/[^a-z0-9]/g,"");
+}
 
-// Normalização para comparação (case-insensitive)
-function normCmp(v){
-  return norm(v).toLowerCase();
+// Detecta colunas reais do CSV mesmo com variações
+function detectColumns(fields){
+  const f = (fields || []).map(x => ({ raw:x, k:keyNorm(x) }));
+  const find = (...alts)=>{
+    for(const alt of alts){
+      const a = keyNorm(alt);
+      const exact = f.find(x => x.k === a);
+      if(exact) return exact.raw;
+      const contain = f.find(x => x.k.includes(a) || a.includes(x.k));
+      if(contain) return contain.raw;
+    }
+    return null;
+  };
+
+  return {
+    titulo:  find("titulo","título","materia","matéria","noticia","notícia") || COL.titulo,
+    data:    find("data","date") || COL.data,
+    topico:  find("topico","tópico","assunto","tema") || COL.topico,
+    impacto: find("impacto","sentimento") || COL.impacto,
+    veiculo: find("veiculo","veículo","fonte","midia","mídia") || COL.veiculo,
+    praca:   find("local(praca)","localpraca","praca","praça","local") || COL.praca,
+    link:    find("link","url","endereco","endereço") || COL.link
+  };
 }
 
 // Parse de data dd/mm/aaaa e fallback
@@ -152,51 +196,103 @@ function parseData(s){
   return isNaN(d) ? null : d;
 }
 
-function setStatus(msg){
-  $("status").innerHTML = msg || "";
+// Preenche selects (Impacto/Veículo/Praça)
+function preencherFiltros(){
+  const impacts=[...new Set(dados.map(d=>norm(d[COL.impacto])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  $("fImpacto").innerHTML = "<option value=''>Todos</option>" + impacts.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
+
+  const veics=[...new Set(dados.map(d=>norm(d[COL.veiculo])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  $("fVeiculo").innerHTML = "<option value=''>Todos</option>" + veics.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
+
+  // ✅ Local (praça) agora usa a coluna detectada (COL.praca)
+  const pracs=[...new Set(dados.map(d=>norm(d[COL.praca])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  $("fPraca").innerHTML = "<option value=''>Todos</option>" + pracs.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
 }
 
-function carregar(){
-  setStatus("Carregando dados…");
-  Papa.parse(URL_CSV,{
-    download:true,
-    header:true,
-    skipEmptyLines:true,
-    complete:r=>{
-      // Segurança: remove linhas sem título
-      dados = (r.data || []).filter(x => norm(x["Título"]).length > 0);
-      preencher();
-      filtrar();
-      setStatus(`Dados carregados: <b>${dados.length}</b> matérias.`);
-    },
-    error: err=>{
-      console.error(err);
-      setStatus("Erro ao carregar o CSV. Verifique se o link está público e publicado como CSV.");
+// Seletor “Data (lista)” (somente lista)
+function atualizarSelectDataLista(){
+  const el = $("fDataLista");
+  const selecionada = el.value;
+
+  const datas = [...new Set(filtrados.map(d => norm(d[COL.data])).filter(Boolean))]
+    .sort((a,b)=> (parseData(b)?.getTime()||0) - (parseData(a)?.getTime()||0)); // datas mais recentes primeiro na lista
+
+  el.innerHTML = "<option value=''>Todas</option>" + datas.map(dt=>`<option value="${escapeAttr(dt)}">${escapeHtml(dt)}</option>`).join("");
+
+  // preserva seleção se ainda existir
+  if(selecionada && datas.includes(selecionada)){
+    el.value = selecionada;
+  }else{
+    el.value = "";
+  }
+}
+
+// Cálculos
+function contar(arr,col){
+  const c={};
+  arr.forEach(d=>{
+    const v = norm(d[col]) || "Sem";
+    c[v]=(c[v]||0)+1;
+  });
+  return c;
+}
+function topItem(o){
+  return Object.entries(o).sort((a,b)=>b[1]-a[1])[0]?.[0] || "-";
+}
+
+// Render geral (KPIs/gráficos) + tabela (com filtro “Data (lista)”)
+function render(){
+  $("kTotal").innerText = filtrados.length;
+
+  const impSel = norm($("fImpacto").value) || "Positivo";
+  const pct = Math.round((contar(base, COL.impacto)[impSel]||0)/(base.length||1)*100);
+  $("kImpactoLabel").innerText = "% " + impSel;
+  $("kImpactoPct").innerText = pct + "%";
+
+  $("kVeiculo").innerText = topItem(contar(filtrados, COL.veiculo));
+  $("kTopico").innerText  = topItem(contar(filtrados, COL.topico));
+
+  // Gráficos
+  if(charts.i) charts.i.destroy();
+  charts.i=new Chart($("gImpacto"),{
+    type:"pie",
+    data:{
+      labels:Object.keys(contar(filtrados, COL.impacto)),
+      datasets:[{data:Object.values(contar(filtrados, COL.impacto))}]
     }
   });
-}
 
-function preencher(){
-  // Impacto
-  {
-    const vals=[...new Set(dados.map(d=>norm(d["Impacto"])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    $("fImpacto").innerHTML = "<option value=''>Todos</option>" + vals.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
-  }
-  // Veículo
-  {
-    const vals=[...new Set(dados.map(d=>norm(d["Veículo"])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    $("fVeiculo").innerHTML = "<option value=''>Todos</option>" + vals.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
-  }
-  // Local (praça)  ✅ agora normalizado
-  {
-    const colName = "Local (praça)";
-    const vals=[...new Set(dados.map(d=>norm(d[colName])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    $("fPraca").innerHTML = "<option value=''>Todos</option>" + vals.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
-  }
+  if(charts.t) charts.t.destroy();
+  charts.t=new Chart($("gTopico"),{
+    type:"bar",
+    data:{
+      labels:Object.keys(contar(filtrados, COL.topico)),
+      datasets:[{data:Object.values(contar(filtrados, COL.topico))}]
+    },
+    options:{scales:{y:{beginAtZero:true}}}
+  });
+
+  // ✅ Atualiza opções do seletor de data da LISTA
+  atualizarSelectDataLista();
+
+  // ✅ Aplica seleção de data SOMENTE na lista
+  const dataLista = norm($("fDataLista").value);
+  const lista = dataLista ? filtrados.filter(d => norm(d[COL.data]) === dataLista) : filtrados;
+
+  // Tabela
+  $("tb").innerHTML = lista.map(d=>`
+    <tr>
+      <td><a href="${escapeAttr(norm(d[COL.link]))}" target="_blank" rel="noopener">${escapeHtml(norm(d[COL.titulo]))}</a></td>
+      <td>${escapeHtml(norm(d[COL.data]))}</td>
+      <td>${escapeHtml(norm(d[COL.veiculo]))}</td>
+      <td>${escapeHtml(norm(d[COL.impacto]))}</td>
+      <td>${escapeHtml(norm(d[COL.praca]))}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="5">Sem dados</td></tr>`;
 }
 
 function filtrar(){
-  const b = normCmp($("busca").value);
+  const b  = normCmp($("busca").value);
   const vi = normCmp($("fVeiculo").value);
   const pr = normCmp($("fPraca").value);
   const im = normCmp($("fImpacto").value);
@@ -205,14 +301,14 @@ function filtrar(){
   const df = $("dataFim").value ? new Date($("dataFim").value+"T23:59:59") : null;
 
   base = dados.filter(d=>{
-    const titulo = normCmp(d["Título"]);
-    const dt = parseData(d["Data"]); // pode ser null
-    const veiculo = normCmp(d["Veículo"]);
-    const praca = normCmp(d["Local (praça)"]);
+    const titulo = normCmp(d[COL.titulo]);
+    const dt = parseData(d[COL.data]);
+    const veiculo = normCmp(d[COL.veiculo]);
+    const praca = normCmp(d[COL.praca]);
 
-    const okBusca = !b || titulo.includes(b);
+    const okBusca   = !b  || titulo.includes(b);
     const okVeiculo = !vi || veiculo === vi;
-    const okPraca = !pr || praca === pr;
+    const okPraca   = !pr || praca === pr;
 
     const okData =
       (!di && !df) ? true :
@@ -223,7 +319,7 @@ function filtrar(){
   });
 
   filtrados = base.filter(d=>{
-    const impacto = normCmp(d["Impacto"]);
+    const impacto = normCmp(d[COL.impacto]);
     return !im || impacto === im;
   });
 
@@ -237,95 +333,41 @@ function limpar(){
   $("fImpacto").value="";
   $("fVeiculo").value="";
   $("fPraca").value="";
+  $("fDataLista").value="";
   filtrar();
 }
 
-function contar(arr,col){
-  const c={};
-  arr.forEach(d=>{
-    const v = norm(d[col]) || "Sem";
-    c[v]=(c[v]||0)+1;
-  });
-  return c;
-}
+function carregar(){
+  setStatus("Carregando dados…");
+  Papa.parse(URL_CSV,{
+    download:true,
+    header:true,
+    skipEmptyLines:true,
+    complete:r=>{
+      // Detecta colunas reais do CSV
+      COL = detectColumns(r.meta && r.meta.fields ? r.meta.fields : Object.keys((r.data||[{}])[0] || {}));
+      console.log("Colunas detectadas:", COL);
 
-function topItem(o){
-  return Object.entries(o).sort((a,b)=>b[1]-a[1])[0]?.[0] || "-";
-}
+      dados = (r.data || []).filter(x => norm(x[COL.titulo]).length > 0);
+      preencherFiltros();
+      filtrar();
 
-function atualizarIndicadoresOrdenacao(){
-  $("btnOrdenar").innerText = ordemDesc ? "Mais recente ↓" : "Mais antigo ↑";
-  $("indData").innerText = ordemDesc ? "↓" : "↑";
-}
-
-function render(){
-  // Ordenação por Data (desc/asc)
-  filtrados.sort((a,b)=>{
-    const da = parseData(a["Data"])?.getTime() || 0;
-    const db = parseData(b["Data"])?.getTime() || 0;
-    return ordemDesc ? (db-da) : (da-db);
-  });
-
-  atualizarIndicadoresOrdenacao();
-
-  $("kTotal").innerText = filtrados.length;
-
-  const impSel = norm($("fImpacto").value) || "Positivo";
-  const pct = Math.round((contar(base,"Impacto")[impSel]||0)/(base.length||1)*100);
-  $("kImpactoLabel").innerText = "% " + impSel;
-  $("kImpactoPct").innerText = pct + "%";
-
-  $("kVeiculo").innerText = topItem(contar(filtrados,"Veículo"));
-  $("kTopico").innerText = topItem(contar(filtrados,"Tópico"));
-
-  // Gráficos
-  if(charts.i) charts.i.destroy();
-  charts.i=new Chart($("gImpacto"),{
-    type:"pie",
-    data:{
-      labels:Object.keys(contar(filtrados,"Impacto")),
-      datasets:[{data:Object.values(contar(filtrados,"Impacto"))}]
+      setStatus(`Dados carregados: <b>${dados.length}</b> matérias.`);
+    },
+    error: err=>{
+      console.error(err);
+      setStatus("Erro ao carregar o CSV. Verifique se o link está público e publicado como CSV.");
     }
   });
-
-  if(charts.t) charts.t.destroy();
-  charts.t=new Chart($("gTopico"),{
-    type:"bar",
-    data:{
-      labels:Object.keys(contar(filtrados,"Tópico")),
-      datasets:[{data:Object.values(contar(filtrados,"Tópico"))}]
-    },
-    options:{scales:{y:{beginAtZero:true}}}
-  });
-
-  // Tabela
-  $("tb").innerHTML = filtrados.map(d=>`
-    <tr>
-      <td><a href="${escapeAttr(norm(d["Link"]))}" target="_blank" rel="noopener">${escapeHtml(norm(d["Título"]))}</a></td>
-      <td>${escapeHtml(norm(d["Data"]))}</td>
-      <td>${escapeHtml(norm(d["Veículo"]))}</td>
-      <td>${escapeHtml(norm(d["Impacto"]))}</td>
-      <td>${escapeHtml(norm(d["Local (praça)"]))}</td>
-    </tr>
-  `).join("") || `<tr><td colspan="5">Sem dados</td></tr>`;
 }
 
-// Botões
+// Eventos
 $("btnCarregar").onclick = carregar;
 $("btnFiltrar").onclick = filtrar;
 $("btnLimpar").onclick = limpar;
 
-// Botão de ordenar
-$("btnOrdenar").onclick = ()=>{
-  ordemDesc = !ordemDesc;
-  render();
-};
-
-// Clique no cabeçalho Data para ordenar
-$("thData").onclick = ()=>{
-  ordemDesc = !ordemDesc;
-  render();
-};
+// Quando mudar a “Data (lista)”, só atualiza a tabela (sem recalcular tudo)
+$("fDataLista").addEventListener("change", ()=>render());
 
 // Escape seguro
 function escapeHtml(str){
