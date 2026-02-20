@@ -390,9 +390,20 @@ function inDateRange(rowDate, start, end){
    Carregar CSV
 ========================= */
 function carregarDados(){
-  if(!URL_CSV || URL_CSV.includes("COLE_AQUI")){
-    setStatus("Cole o link CSV da aba <b>BASE_GERAL</b> em <b>URL_CSV</b> dentro do HTML.", "err");
-    return;
+  const mes = document.getElementById("mesSelect").value;
+  if(!mes || !LINKS[mes]) return;
+
+  Papa.parse(LINKS[mes], {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    complete: function(results){
+      dados = results.data.filter(r => r["Título"]);
+      atualizarFiltros();
+      aplicarFiltros(true);
+    }
+  });
+};
   }
 
   $("btnCarregar").disabled = true;
@@ -628,3 +639,4 @@ setStatus("Cole o link CSV da <b>BASE_GERAL</b> em <b>URL_CSV</b> e clique em <b
 </script>
 </body>
 </html>
+
