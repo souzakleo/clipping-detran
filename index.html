@@ -191,7 +191,7 @@
     <div class="header">
       <div>
         <h1>Clipping Detran-MA</h1>
-        <div class="sub">Dashboard (Google Sheets → CSV) • Clique no título da matéria para abrir</div>
+        <div class="sub">Base Geral (2025 + 2026) via Google Sheets → CSV • Clique no título para abrir</div>
       </div>
       <div class="pill">
         <span>📄 Colunas:</span>
@@ -239,7 +239,7 @@
       </div>
 
       <div id="status" class="status">
-        Cole seu link CSV na variável <b>URL_CSV</b> e clique em <b>Carregar</b>.
+        Cole o link CSV da aba <b>BASE_GERAL</b> (2025+2026) na variável <b>URL_CSV</b> e clique em <b>Carregar</b>.
       </div>
     </div>
 
@@ -301,34 +301,52 @@
 
 <script>
 /**
- * ✅ IMPORTANTE
- * Troque a variável URL_CSV pelo link "Publicar na Web" (CSV) do Google Sheets.
+ * ✅ COLE AQUI O LINK CSV DA ABA BASE_GERAL (com 2025 e 2026)
  * O link deve terminar com: output=csv
  */
-const URL_CSV = "COLE_SEU_LINK_CSV_AQUI";
+const LINKS = {
+"Jan": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTQDEoRILXzO3X3rUuRZJV8VaMFuxgiyaqqJbVe7wpEeOxYkoTV1Tl9oWNyK9z4vxCSCdI0Yrbxve_6/pub?gid=553568239&single=true&output=csv",
+"Fev": "LINK_FEV",
+"Mar": "LINK_MAR",
+"Abr": "LINK_ABR",
+"Mai": "LINK_MAI",
+"Jun": "LINK_JUN",
+"Jul": "LINK_JUL",
+"Ago": "LINK_AGO",
+"Set": "LINK_SET",
+"Out": "LINK_OUT",
+"Nov": "LINK_NOV",
+"Dez": "LINK_DEZ"
+};
 
+/* =========================
+   Estado
+========================= */
 let dados = [];           // dados carregados (raw)
 let baseFiltrado = [];    // filtros SEM Impacto (para KPI %)
 let dadosFiltrados = [];  // filtros completos (inclui Impacto) para tabela/gráficos
 let charts = {};
 
-// UI helpers
+/* =========================
+   Helpers
+========================= */
 const $ = (id) => document.getElementById(id);
 const statusEl = $("status");
+
 function setStatus(msg, kind=""){
   statusEl.className = "status" + (kind ? " " + kind : "");
   statusEl.innerHTML = msg;
 }
 function normalize(v){ return (v ?? "").toString().trim(); }
-
-// Primeira letra maiúscula (sem mudar o restante)
 function capFirstKeepRest(s){
   const v = normalize(s);
   if(!v) return v;
   return v.charAt(0).toUpperCase() + v.slice(1);
 }
 
-// ====== Datas ======
+/* =========================
+   Datas
+========================= */
 function parseDateAny(s){
   const v = normalize(s);
   if(!v) return null;
@@ -349,7 +367,7 @@ function parseDateAny(s){
     return isNaN(d) ? null : d;
   }
 
-  // fallback Date.parse
+  // fallback
   const d = new Date(v);
   return isNaN(d) ? null : d;
 }
@@ -368,10 +386,12 @@ function inDateRange(rowDate, start, end){
   return true;
 }
 
-// ====== Carregar CSV ======
+/* =========================
+   Carregar CSV
+========================= */
 function carregarDados(){
-  if(!URL_CSV || URL_CSV.includes("COLE_SEU_LINK")){
-    setStatus("Cole o link CSV em <b>URL_CSV</b> dentro do HTML.", "err");
+  if(!URL_CSV || URL_CSV.includes("COLE_AQUI")){
+    setStatus("Cole o link CSV da aba <b>BASE_GERAL</b> em <b>URL_CSV</b> dentro do HTML.", "err");
     return;
   }
 
@@ -387,7 +407,7 @@ function carregarDados(){
       atualizarFiltros();
       aplicarFiltros(true);
       $("btnCarregar").disabled = false;
-      setStatus(`Dados carregados: <b>${dados.length}</b> registros.`, "ok");
+      setStatus(`Dados carregados: <b>${dados.length}</b> registros (BASE_GERAL).`, "ok");
     },
     error: function(err){
       console.error(err);
@@ -397,7 +417,9 @@ function carregarDados(){
   });
 }
 
-// ====== Filtros (com “Todos” e capitalização da 1ª letra) ======
+/* =========================
+   Filtros
+========================= */
 function distinctValues(col){
   return [...new Set(dados.map(d => normalize(d[col])).filter(v => v))]
     .sort((a,b)=>a.localeCompare(b,'pt-BR'));
@@ -416,10 +438,10 @@ function atualizarFiltros(){
 
 /**
  * KPI % por Impacto:
- * - Se Impacto selecionado: mostra % daquele Impacto na base (sem Impacto)
+ * - Se Impacto selecionado: mostra % daquele Impacto na BASE (sem Impacto)
  * - Se não selecionado: mostra % Positivo
  *
- * A tabela/gráficos seguem o filtro de Impacto, se selecionado.
+ * Tabela/gráficos seguem Impacto se selecionado.
  */
 function aplicarFiltros(silent=false){
   const busca = $("busca").value.toLowerCase();
@@ -468,7 +490,9 @@ function limparFiltros(){
   setStatus(`Filtros limpos. Exibindo <b>${dadosFiltrados.length}</b> registros.`, "ok");
 }
 
-// ====== KPIs ======
+/* =========================
+   KPIs
+========================= */
 function contarEm(arr, col){
   const c = {};
   for (const d of arr){
@@ -502,7 +526,9 @@ function atualizarKPIs(){
   $("kTopico").textContent = topItem(contarEm(dadosFiltrados, "Tópico"));
 }
 
-// ====== Charts ======
+/* =========================
+   Gráficos
+========================= */
 const palette = ["#2563eb","#0ea5e9","#22c55e","#f59e0b","#ef4444","#a855f7","#14b8a6","#fb7185","#84cc16","#f97316"];
 function grafico(id, data, tipo){
   if(charts[id]) charts[id].destroy();
@@ -528,7 +554,9 @@ function grafico(id, data, tipo){
   });
 }
 
-// ====== Tabela (matéria já clicável) — sem painel de detalhes ======
+/* =========================
+   Tabela (título clicável)
+========================= */
 function atualizarTabela(){
   const tbody = $("tabelaBody");
   if(dadosFiltrados.length === 0){
@@ -556,7 +584,9 @@ function atualizarTabela(){
   }).join("");
 }
 
-// ====== Update all ======
+/* =========================
+   Atualizar tudo
+========================= */
 function atualizarDashboard(){
   atualizarKPIs();
   grafico("gImpacto", contarEm(dadosFiltrados, "Impacto"), "pie");
@@ -564,7 +594,9 @@ function atualizarDashboard(){
   atualizarTabela();
 }
 
-// ====== escaping ======
+/* =========================
+   Escape
+========================= */
 function escapeHtml(str){
   return (str ?? "").toString()
     .replaceAll("&","&amp;")
@@ -577,7 +609,9 @@ function escapeAttr(str){
   return escapeHtml(str).replaceAll("`","&#096;");
 }
 
-// ====== Wire UI ======
+/* =========================
+   Eventos
+========================= */
 $("btnCarregar").addEventListener("click", carregarDados);
 $("btnFiltrar").addEventListener("click", ()=>aplicarFiltros(false));
 $("btnLimpar").addEventListener("click", limparFiltros);
@@ -590,8 +624,7 @@ $("fPraca").addEventListener("change", ()=>aplicarFiltros(true));
 $("dataIni").addEventListener("change", ()=>aplicarFiltros(true));
 $("dataFim").addEventListener("change", ()=>aplicarFiltros(true));
 
-setStatus("Cole o link CSV em <b>URL_CSV</b> e clique em <b>Carregar</b>.", "");
-
+setStatus("Cole o link CSV da <b>BASE_GERAL</b> em <b>URL_CSV</b> e clique em <b>Carregar</b>.", "");
 </script>
 </body>
 </html>
