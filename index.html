@@ -1,617 +1,274 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Clipping Detran-MA</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Clipping Detran-MA</title>
 
-  <!-- Bibliotecas -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-  <style>
-    :root{
-      --bg:#eef2f7;
-      --card:#ffffff;
-      --text:#0f172a;
-      --muted:#64748b;
-      --primary:#2563eb;
-      --primary2:#0ea5e9;
-      --border:#cbd5e1;
-      --shadow:0 6px 18px rgba(2,6,23,.08);
-      --radius:14px;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      padding:20px;
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-      background:var(--bg);
-      color:var(--text);
-    }
-    .container{max-width:1750px;margin:0 auto;}
+<style>
+:root{
+--bg:#eef2f7;
+--card:#ffffff;
+--text:#0f172a;
+--muted:#64748b;
+--primary:#2563eb;
+--primary2:#0ea5e9;
+--border:#cbd5e1;
+--shadow:0 6px 18px rgba(2,6,23,.08);
+--radius:14px;
+}
+body{
+margin:0;
+padding:20px;
+font-family:Segoe UI, sans-serif;
+background:var(--bg);
+}
+.container{max-width:1700px;margin:auto;}
 
-    .header{
-      background:linear-gradient(135deg, #1e40af, var(--primary2));
-      color:#fff;
-      padding:18px 20px;
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:16px;
-      margin-bottom:18px;
-      flex-wrap:wrap;
-    }
-    .header h1{margin:0;font-size:22px;letter-spacing:.2px}
-    .header .sub{font-size:12px;opacity:.9;margin-top:4px}
-    .pill{
-      display:inline-flex;align-items:center;gap:8px;
-      background:rgba(255,255,255,.14);
-      border:1px solid rgba(255,255,255,.22);
-      padding:8px 10px;border-radius:999px;
-      font-size:12px;
-      white-space:nowrap;
-    }
+.header{
+background:linear-gradient(135deg,#1e40af,#0ea5e9);
+color:white;
+padding:20px;
+border-radius:var(--radius);
+margin-bottom:20px;
+}
 
-    .card{
-      background:var(--card);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      padding:14px;
-      margin-bottom:18px;
-    }
+.card{
+background:white;
+padding:15px;
+border-radius:var(--radius);
+box-shadow:var(--shadow);
+margin-bottom:20px;
+}
 
-    .controls{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      align-items:end;
-    }
-    .field{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      min-width:190px;
-    }
-    .field label{
-      font-size:12px;color:var(--muted);
-    }
-    select,input{
-      padding:10px 10px;
-      border-radius:12px;
-      border:1px solid var(--border);
-      outline:none;
-      background:#fff;
-      font-size:14px;
-    }
-    input::placeholder{color:#94a3b8}
-    .btnrow{display:flex;gap:8px;flex-wrap:wrap}
-    button{
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid transparent;
-      background:var(--primary);
-      color:#fff;
-      cursor:pointer;
-      font-weight:600;
-      font-size:14px;
-    }
-    button.secondary{
-      background:#fff;
-      color:var(--primary);
-      border-color:var(--border);
-    }
-    button:disabled{opacity:.6;cursor:not-allowed}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:end;}
 
-    .kpis{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-      gap:12px;
-      margin-bottom:18px;
-    }
-    .kpi{
-      background:linear-gradient(135deg, var(--primary), var(--primary2));
-      color:#fff;
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      padding:14px;
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      min-height:92px;
-    }
-    .kpi .label{font-size:12px;opacity:.9}
-    .kpi .value{font-size:26px;font-weight:800;line-height:1}
-    .kpi .hint{font-size:12px;opacity:.9}
+.field{display:flex;flex-direction:column;font-size:12px;color:#64748b}
+select,input{padding:8px;border-radius:8px;border:1px solid #cbd5e1}
 
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(420px,1fr));
-      gap:14px;
-      margin-bottom:18px;
-    }
-    .card h3{
-      margin:0 0 10px 0;
-      font-size:15px;
-    }
+button{
+background:#2563eb;
+color:white;
+border:none;
+padding:8px 14px;
+border-radius:8px;
+cursor:pointer;
+}
 
-    .status{
-      font-size:12px;
-      color:var(--muted);
-      margin-top:8px;
-    }
-    .status.ok{color:#0f766e}
-    .status.err{color:#b91c1c}
+.kpis{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:15px;
+margin-bottom:20px;
+}
 
-    table{
-      width:100%;
-      border-collapse:separate;
-      border-spacing:0;
-      font-size:13px;
-      overflow:hidden;
-      border-radius:12px;
-      border:1px solid #e2e8f0;
-    }
-    thead th{
-      background:var(--primary);
-      color:#fff;
-      text-align:left;
-      padding:10px 10px;
-      font-weight:700;
-      position:sticky;
-      top:0;
-      z-index:1;
-    }
-    tbody td{
-      padding:9px 10px;
-      border-top:1px solid #e2e8f0;
-      color:#0f172a;
-      vertical-align:top;
-    }
-    tbody tr:hover{background:#f8fafc}
-    .tablewrap{max-height:520px;overflow:auto;border-radius:12px}
+.kpi{
+background:linear-gradient(135deg,#2563eb,#0ea5e9);
+color:white;
+padding:15px;
+border-radius:12px;
+}
 
-    a.titlelink{
-      color:#0f172a;
-      text-decoration:none;
-      font-weight:650;
-    }
-    a.titlelink:hover{
-      color:var(--primary);
-      text-decoration:underline;
-    }
-  </style>
+.grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(420px,1fr));
+gap:15px;
+}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#2563eb;color:white;padding:8px}
+td{padding:8px;border-top:1px solid #e2e8f0}
+a{color:#0f172a;text-decoration:none;font-weight:600}
+a:hover{color:#2563eb;text-decoration:underline}
+</style>
 </head>
 
 <body>
-  <div class="container">
+<div class="container">
 
-    <div class="header">
-      <div>
-        <h1>Clipping Detran-MA</h1>
-        <div class="sub">Base Geral (2025 + 2026) via Google Sheets → CSV • Clique no título para abrir</div>
-      </div>
-      <div class="pill">
-        <span>📄 Colunas:</span>
-        <span><b>Título</b>, Data, Tópico, Impacto, Veículo, Local (praça), <b>Link</b></span>
-      </div>
-    </div>
+<div class="header">
+<h2>Clipping Detran-MA</h2>
+Base Geral (2025 + 2026)
+</div>
 
-    <div class="card">
-      <div class="controls">
-        <div class="field" style="min-width:260px;flex:1">
-          <label>Buscar no título</label>
-          <input id="busca" type="text" placeholder="Ex: blitz, campanha, CNH..." />
-        </div>
+<div class="card">
+<div class="controls">
 
-        <div class="field">
-          <label>Data inicial</label>
-          <input id="dataIni" type="date" />
-        </div>
+<div class="field">
+Buscar
+<input id="busca">
+</div>
 
-        <div class="field">
-          <label>Data final</label>
-          <input id="dataFim" type="date" />
-        </div>
+<div class="field">
+Data inicial
+<input type="date" id="dataIni">
+</div>
 
-        <div class="field">
-          <label>Impacto</label>
-          <select id="fImpacto"></select>
-        </div>
+<div class="field">
+Data final
+<input type="date" id="dataFim">
+</div>
 
-        <div class="field">
-          <label>Veículos</label>
-          <select id="fVeiculo"></select>
-        </div>
+<div class="field">
+Impacto
+<select id="fImpacto"></select>
+</div>
 
-        <div class="field">
-          <label>Local (praça)</label>
-          <select id="fPraca"></select>
-        </div>
+<div class="field">
+Veículos
+<select id="fVeiculo"></select>
+</div>
 
-        <div class="btnrow">
-          <button id="btnCarregar">Carregar</button>
-          <button class="secondary" id="btnFiltrar">Filtrar</button>
-          <button class="secondary" id="btnLimpar">Limpar</button>
-        </div>
-      </div>
+<div class="field">
+Local (praça)
+<select id="fPraca"></select>
+</div>
 
-      <div id="status" class="status">
-        Cole o link CSV da aba <b>BASE_GERAL</b> (2025+2026) na variável <b>URL_CSV</b> e clique em <b>Carregar</b>.
-      </div>
-    </div>
+<button onclick="carregar()">Carregar</button>
+<button onclick="filtrar()">Filtrar</button>
+<button onclick="limpar()">Limpar</button>
 
-    <div class="kpis">
-      <div class="kpi">
-        <div class="label">Total de matérias</div>
-        <div class="value" id="kTotal">0</div>
-        <div class="hint">na seleção atual</div>
-      </div>
-      <div class="kpi">
-        <div class="label" id="kImpactoLabel">% Positivas</div>
-        <div class="value" id="kImpactoPct">0%</div>
-        <div class="hint" id="kImpactoHint">impacto “Positivo”</div>
-      </div>
-      <div class="kpi">
-        <div class="label">Top Veículo</div>
-        <div class="value" id="kVeiculo">-</div>
-        <div class="hint">maior volume</div>
-      </div>
-      <div class="kpi">
-        <div class="label">Top Tópico</div>
-        <div class="value" id="kTopico">-</div>
-        <div class="hint">maior volume</div>
-      </div>
-    </div>
+</div>
+</div>
 
-    <div class="grid">
-      <div class="card">
-        <h3>Impacto</h3>
-        <canvas id="gImpacto"></canvas>
-      </div>
-      <div class="card">
-        <h3>Tópicos</h3>
-        <canvas id="gTopico"></canvas>
-      </div>
-    </div>
+<div class="kpis">
+<div class="kpi">Total<br><h2 id="kTotal">0</h2></div>
+<div class="kpi"><span id="kLabel">% Positivas</span><br><h2 id="kPct">0%</h2></div>
+<div class="kpi">Top Veículo<br><h2 id="kVeiculo">-</h2></div>
+<div class="kpi">Top Tópico<br><h2 id="kTopico">-</h2></div>
+</div>
 
-    <div class="card">
-      <h3>Lista de matérias</h3>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th style="width:38%">Título</th>
-              <th style="width:12%">Data</th>
-              <th style="width:18%">Veículo</th>
-              <th style="width:12%">Impacto</th>
-              <th style="width:20%">Local (praça)</th>
-            </tr>
-          </thead>
-          <tbody id="tabelaBody">
-            <tr><td colspan="5">Sem dados</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+<div class="grid">
+<div class="card"><canvas id="gImpacto"></canvas></div>
+<div class="card"><canvas id="gTopico"></canvas></div>
+</div>
 
-  </div>
+<div class="card">
+<table>
+<thead>
+<tr>
+<th>Título</th>
+<th>Data</th>
+<th>Veículo</th>
+<th>Impacto</th>
+<th>Local</th>
+</tr>
+</thead>
+<tbody id="tb"></tbody>
+</table>
+</div>
+
+</div>
 
 <script>
-/**
- * ✅ COLE AQUI O LINK CSV DA ABA BASE_GERAL (com 2025 e 2026)
- * O link deve terminar com: output=csv
- */
+
 const URL_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTQDEoRILXzO3X3rUuRZJV8VaMFuxgiyaqqJbVe7wpEeOxYkoTV1Tl9oWNyK9z4vxCSCdI0Yrbxve_6/pub?gid=553568239&single=true&output=csv";
 
-/* =========================
-   Estado
-========================= */
-let dados = [];           // dados carregados (raw)
-let baseFiltrado = [];    // filtros SEM Impacto (para KPI %)
-let dadosFiltrados = [];  // filtros completos (inclui Impacto) para tabela/gráficos
-let charts = {};
+let dados=[],base=[],filtrados=[];
+let charts={};
 
-/* =========================
-   Helpers
-========================= */
-const $ = (id) => document.getElementById(id);
-const statusEl = $("status");
+function norm(v){return (v||"").trim();}
 
-function setStatus(msg, kind=""){
-  statusEl.className = "status" + (kind ? " " + kind : "");
-  statusEl.innerHTML = msg;
+function carregar(){
+Papa.parse(URL_CSV,{
+download:true,
+header:true,
+skipEmptyLines:true,
+complete:r=>{
+dados=r.data.filter(x=>norm(x["Título"]));
+preencher();
+filtrar();
 }
-function normalize(v){ return (v ?? "").toString().trim(); }
-function capFirstKeepRest(s){
-  const v = normalize(s);
-  if(!v) return v;
-  return v.charAt(0).toUpperCase() + v.slice(1);
+});
 }
 
-/* =========================
-   Datas
-========================= */
-function parseDateAny(s){
-  const v = normalize(s);
-  if(!v) return null;
-
-  // ISO (yyyy-mm-dd)
-  if(/^\d{4}-\d{2}-\d{2}/.test(v)){
-    const d = new Date(v.slice(0,10) + "T00:00:00");
-    return isNaN(d) ? null : d;
-  }
-
-  // dd/mm/yyyy ou dd-mm-yyyy
-  const m = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if(m){
-    const dd = parseInt(m[1],10);
-    const mm = parseInt(m[2],10) - 1;
-    const yy = parseInt(m[3],10);
-    const d = new Date(yy, mm, dd);
-    return isNaN(d) ? null : d;
-  }
-
-  // fallback
-  const d = new Date(v);
-  return isNaN(d) ? null : d;
-}
-function parseDateInput(id){
-  const v = $(id).value; // yyyy-mm-dd
-  if(!v) return null;
-  const d = new Date(v + "T00:00:00");
-  return isNaN(d) ? null : d;
-}
-function inDateRange(rowDate, start, end){
-  if(!start && !end) return true;
-  if(!rowDate) return false;
-  const t = rowDate.getTime();
-  if(start && t < start.getTime()) return false;
-  if(end && t > end.getTime()) return false;
-  return true;
+function preencher(){
+const cols=["Impacto","Veículo","Praça"];
+cols.forEach(c=>{
+const s=document.getElementById("f"+c.replace("í","i").replace("ç","c"));
+if(!s)return;
+const vals=[...new Set(dados.map(d=>norm(d[c])).filter(Boolean))];
+s.innerHTML="<option value=''>Todos</option>"+vals.map(v=>`<option>${v}</option>`).join("");
+});
 }
 
-/* =========================
-   Carregar CSV
-========================= */
-function carregarDados(){
-  if(!URL_CSV || URL_CSV.includes("COLE_AQUI")){
-    setStatus("Cole o link CSV da aba <b>BASE_GERAL</b> em <b>URL_CSV</b> dentro do HTML.", "err");
-    return;
-  }
-
-  $("btnCarregar").disabled = true;
-  setStatus("Carregando dados do Google Sheets…", "");
-
-  Papa.parse(URL_CSV, {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    complete: function(results){
-      dados = (results.data || []).filter(r => normalize(r["Título"]).length > 0);
-      atualizarFiltros();
-      aplicarFiltros(true);
-      $("btnCarregar").disabled = false;
-      setStatus(`Dados carregados: <b>${dados.length}</b> registros (BASE_GERAL).`, "ok");
-    },
-    error: function(err){
-      console.error(err);
-      $("btnCarregar").disabled = false;
-      setStatus("Erro ao carregar CSV. Verifique se o link está publicado como CSV e público.", "err");
-    }
-  });
+function parseData(s){
+if(!s)return null;
+const p=s.split("/");
+if(p.length===3)return new Date(p[2],p[1]-1,p[0]);
+return new Date(s);
 }
 
-/* =========================
-   Filtros
-========================= */
-function distinctValues(col){
-  return [...new Set(dados.map(d => normalize(d[col])).filter(v => v))]
-    .sort((a,b)=>a.localeCompare(b,'pt-BR'));
-}
-function preencherSelect(id, col){
-  const el = $(id);
-  const vals = distinctValues(col).map(capFirstKeepRest);
-  el.innerHTML = `<option value="">Todos</option>` +
-    vals.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
-}
-function atualizarFiltros(){
-  preencherSelect("fImpacto","Impacto");
-  preencherSelect("fVeiculo","Veículo");
-  preencherSelect("fPraca","Praça");
-}
+function filtrar(){
+const b=busca.value.toLowerCase();
+const vi=fVeiculo.value;
+const pr=fPraca.value;
+const im=fImpacto.value;
+const di=dataIni.value?new Date(dataIni.value):null;
+const df=dataFim.value?new Date(dataFim.value):null;
 
-/**
- * KPI % por Impacto:
- * - Se Impacto selecionado: mostra % daquele Impacto na BASE (sem Impacto)
- * - Se não selecionado: mostra % Positivo
- *
- * Tabela/gráficos seguem Impacto se selecionado.
- */
-function aplicarFiltros(silent=false){
-  const busca = $("busca").value.toLowerCase();
-  const veiculo = $("fVeiculo").value;
-  const praca = $("fPraca").value;
-  const impactoSelecionado = $("fImpacto").value;
+base=dados.filter(d=>{
+const dt=parseData(d.Data);
+return (!b||d.Título.toLowerCase().includes(b)) &&
+(!vi||d.Veículo===vi) &&
+(!pr||d.Praça===pr) &&
+(!di||dt>=di)&&(!df||dt<=df);
+});
 
-  const dIni = parseDateInput("dataIni");
-  const dFim = parseDateInput("dataFim");
+filtrados=base.filter(d=>!im||d.Impacto===im);
 
-  // Base sem Impacto (para KPI)
-  baseFiltrado = dados.filter(d=>{
-    const titulo = normalize(d["Título"]).toLowerCase();
-    const dataRow = parseDateAny(d["Data"]);
-    const okBusca = !busca || titulo.includes(busca);
-    const okVeiculo = !veiculo || capFirstKeepRest(d["Veículo"]) === veiculo;
-    const okPraca = !praca || capFirstKeepRest(d["Praça"]) === praca;
-    const okData = inDateRange(dataRow, dIni, dFim);
-    return okBusca && okVeiculo && okPraca && okData;
-  });
-
-  // Final com Impacto (para tabela/gráficos)
-  dadosFiltrados = baseFiltrado.filter(d=>{
-    return (!impactoSelecionado || capFirstKeepRest(d["Impacto"]) === impactoSelecionado);
-  });
-
-  atualizarDashboard();
-
-  if(!silent){
-    setStatus(`Filtro aplicado. Base: <b>${baseFiltrado.length}</b> • Exibindo: <b>${dadosFiltrados.length}</b>`, "ok");
-  }
+render();
 }
 
-function limparFiltros(){
-  $("busca").value = "";
-  $("dataIni").value = "";
-  $("dataFim").value = "";
-  $("fImpacto").value = "";
-  $("fVeiculo").value = "";
-  $("fPraca").value = "";
-
-  baseFiltrado = [...dados];
-  dadosFiltrados = [...dados];
-  atualizarDashboard();
-
-  setStatus(`Filtros limpos. Exibindo <b>${dadosFiltrados.length}</b> registros.`, "ok");
+function limpar(){
+busca.value="";
+dataIni.value="";
+dataFim.value="";
+fImpacto.value="";
+fVeiculo.value="";
+fPraca.value="";
+filtrar();
 }
 
-/* =========================
-   KPIs
-========================= */
-function contarEm(arr, col){
-  const c = {};
-  for (const d of arr){
-    const v = capFirstKeepRest(d[col]) || "Sem dado";
-    c[v] = (c[v] || 0) + 1;
-  }
-  return c;
-}
-function topItem(obj){
-  const e = Object.entries(obj).sort((a,b)=>b[1]-a[1])[0];
-  return e ? e[0] : "-";
+function contar(arr,col){
+const c={};
+arr.forEach(d=>{const v=d[col]||"Sem";c[v]=(c[v]||0)+1});
+return c;
 }
 
-function atualizarKPIs(){
-  $("kTotal").textContent = String(dadosFiltrados.length);
+function top(o){return Object.entries(o).sort((a,b)=>b[1]-a[1])[0]?.[0]||"-";}
 
-  const impactoSelecionado = $("fImpacto").value;
-  const impactoAlvo = impactoSelecionado || "Positivo";
-  const label = impactoSelecionado ? `% ${impactoSelecionado}` : "% Positivas";
+function render(){
+kTotal.innerText=filtrados.length;
 
-  const baseTotal = baseFiltrado.length;
-  const impBase = contarEm(baseFiltrado, "Impacto");
-  const alvoCount = impBase[impactoAlvo] || 0;
-  const perc = baseTotal ? Math.round((alvoCount / baseTotal) * 100) : 0;
+const impSel=fImpacto.value||"Positivo";
+const pct=Math.round((contar(base,"Impacto")[impSel]||0)/(base.length||1)*100);
+kLabel.innerText="% "+impSel;
+kPct.innerText=pct+"%";
 
-  $("kImpactoLabel").textContent = label;
-  $("kImpactoPct").textContent = `${perc}%`;
-  $("kImpactoHint").textContent = `base: ${baseTotal} • impacto “${impactoAlvo}”`;
+kVeiculo.innerText=top(contar(filtrados,"Veículo"));
+kTopico.innerText=top(contar(filtrados,"Tópico"));
 
-  $("kVeiculo").textContent = topItem(contarEm(dadosFiltrados, "Veículo"));
-  $("kTopico").textContent = topItem(contarEm(dadosFiltrados, "Tópico"));
+if(charts.i)charts.i.destroy();
+charts.i=new Chart(gImpacto,{type:"pie",data:{labels:Object.keys(contar(filtrados,"Impacto")),datasets:[{data:Object.values(contar(filtrados,"Impacto"))}]}});
+
+if(charts.t)charts.t.destroy();
+charts.t=new Chart(gTopico,{type:"bar",data:{labels:Object.keys(contar(filtrados,"Tópico")),datasets:[{data:Object.values(contar(filtrados,"Tópico"))}]}});
+
+tb.innerHTML=filtrados.map(d=>`
+<tr>
+<td><a href="${d.Link}" target="_blank">${d.Título}</a></td>
+<td>${d.Data}</td>
+<td>${d.Veículo}</td>
+<td>${d.Impacto}</td>
+<td>${d.Praça}</td>
+</tr>`).join("");
 }
 
-/* =========================
-   Gráficos
-========================= */
-const palette = ["#2563eb","#0ea5e9","#22c55e","#f59e0b","#ef4444","#a855f7","#14b8a6","#fb7185","#84cc16","#f97316"];
-function grafico(id, data, tipo){
-  if(charts[id]) charts[id].destroy();
-
-  const labels = Object.keys(data);
-  const values = Object.values(data);
-  const bg = labels.map((_,i)=>palette[i % palette.length]);
-
-  charts[id] = new Chart($(id),{
-    type: tipo,
-    data: {
-      labels,
-      datasets: [{
-        data: values,
-        backgroundColor: (tipo === "bar") ? bg[0] : bg
-      }]
-    },
-    options: {
-      responsive:true,
-      plugins: { legend: { display: tipo !== "bar" } },
-      scales: (tipo === "bar") ? { y: { beginAtZero:true } } : {}
-    }
-  });
-}
-
-/* =========================
-   Tabela (título clicável)
-========================= */
-function atualizarTabela(){
-  const tbody = $("tabelaBody");
-  if(dadosFiltrados.length === 0){
-    tbody.innerHTML = `<tr><td colspan="5">Sem dados</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = dadosFiltrados.map((d)=>{
-    const titulo = normalize(d["Título"]);
-    const link = normalize(d["Link"]);
-    return `
-      <tr>
-        <td>
-          ${link
-            ? `<a class="titlelink" href="${escapeAttr(link)}" target="_blank" rel="noopener">${escapeHtml(titulo)}</a>`
-            : `${escapeHtml(titulo)}`
-          }
-        </td>
-        <td>${escapeHtml(normalize(d["Data"]))}</td>
-        <td>${escapeHtml(capFirstKeepRest(d["Veículo"]))}</td>
-        <td>${escapeHtml(capFirstKeepRest(d["Impacto"]))}</td>
-        <td>${escapeHtml(capFirstKeepRest(d["Praça"]))}</td>
-      </tr>
-    `;
-  }).join("");
-}
-
-/* =========================
-   Atualizar tudo
-========================= */
-function atualizarDashboard(){
-  atualizarKPIs();
-  grafico("gImpacto", contarEm(dadosFiltrados, "Impacto"), "pie");
-  grafico("gTopico", contarEm(dadosFiltrados, "Tópico"), "bar");
-  atualizarTabela();
-}
-
-/* =========================
-   Escape
-========================= */
-function escapeHtml(str){
-  return (str ?? "").toString()
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-function escapeAttr(str){
-  return escapeHtml(str).replaceAll("`","&#096;");
-}
-
-/* =========================
-   Eventos
-========================= */
-$("btnCarregar").addEventListener("click", carregarDados);
-$("btnFiltrar").addEventListener("click", ()=>aplicarFiltros(false));
-$("btnLimpar").addEventListener("click", limparFiltros);
-
-$("busca").addEventListener("keydown", (e)=>{ if(e.key==="Enter") aplicarFiltros(false); });
-
-$("fImpacto").addEventListener("change", ()=>aplicarFiltros(true));
-$("fVeiculo").addEventListener("change", ()=>aplicarFiltros(true));
-$("fPraca").addEventListener("change", ()=>aplicarFiltros(true));
-$("dataIni").addEventListener("change", ()=>aplicarFiltros(true));
-$("dataFim").addEventListener("change", ()=>aplicarFiltros(true));
-
-setStatus("Cole o link CSV da <b>BASE_GERAL</b> em <b>URL_CSV</b> e clique em <b>Carregar</b>.", "");
 </script>
+
 </body>
 </html>
