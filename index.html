@@ -304,20 +304,7 @@
  * ✅ COLE AQUI O LINK CSV DA ABA BASE_GERAL (com 2025 e 2026)
  * O link deve terminar com: output=csv
  */
-const LINKS = {
-"Jan": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTQDEoRILXzO3X3rUuRZJV8VaMFuxgiyaqqJbVe7wpEeOxYkoTV1Tl9oWNyK9z4vxCSCdI0Yrbxve_6/pub?gid=553568239&single=true&output=csv",
-"Fev": "LINK_FEV",
-"Mar": "LINK_MAR",
-"Abr": "LINK_ABR",
-"Mai": "LINK_MAI",
-"Jun": "LINK_JUN",
-"Jul": "LINK_JUL",
-"Ago": "LINK_AGO",
-"Set": "LINK_SET",
-"Out": "LINK_OUT",
-"Nov": "LINK_NOV",
-"Dez": "LINK_DEZ"
-};
+const URL_CSV = "COLE_AQUI_O_LINK_CSV_DA_BASE_GERAL";
 
 /* =========================
    Estado
@@ -390,20 +377,9 @@ function inDateRange(rowDate, start, end){
    Carregar CSV
 ========================= */
 function carregarDados(){
-  const mes = document.getElementById("mesSelect").value;
-  if(!mes || !LINKS[mes]) return;
-
-  Papa.parse(LINKS[mes], {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    complete: function(results){
-      dados = results.data.filter(r => r["Título"]);
-      atualizarFiltros();
-      aplicarFiltros(true);
-    }
-  });
-};
+  if(!URL_CSV || URL_CSV.includes("COLE_AQUI")){
+    setStatus("Cole o link CSV da aba <b>BASE_GERAL</b> em <b>URL_CSV</b> dentro do HTML.", "err");
+    return;
   }
 
   $("btnCarregar").disabled = true;
@@ -639,4 +615,3 @@ setStatus("Cole o link CSV da <b>BASE_GERAL</b> em <b>URL_CSV</b> e clique em <b
 </script>
 </body>
 </html>
-
