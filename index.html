@@ -71,12 +71,12 @@ a:hover{color:#2563eb;text-decoration:underline}
 
 <div class="card">
 <div class="controls">
-<div class="field">Buscar<input id="busca"></div>
+<div class="field">Busca por assunto<input id="busca"></div>
 <div class="field">Data inicial<input type="date" id="dataIni"></div>
 <div class="field">Data final<input type="date" id="dataFim"></div>
 <div class="field">Impacto<select id="fImpacto"></select></div>
 <div class="field">Veículos<select id="fVeiculo"></select></div>
-<div class="field">Local<select id="fPraca"></select></div>
+<div class="field">Local (praça)<select id="fPraca"></select></div>
 <button id="btnCarregar">Carregar</button>
 <button class="secondary" id="btnFiltrar">Filtrar</button>
 <button class="secondary" id="btnLimpar">Limpar</button>
@@ -86,9 +86,9 @@ a:hover{color:#2563eb;text-decoration:underline}
 
 <div class="kpis">
 <div class="kpi">Total<br><h2 id="kTotal">0</h2></div>
-<div class="kpi"><span id="kImpactoLabel">% Positivas</span><br><h2 id="kImpactoPct">0%</h2></div>
-<div class="kpi">Top Veículo<br><h2 id="kVeiculo">-</h2></div>
-<div class="kpi">Top Tópico<br><h2 id="kTopico">-</h2></div>
+<div class="kpi"><span id="kImpactoLabel">Porcentagem Positiva</span><br><h2 id="kImpactoPct">0%</h2></div>
+<div class="kpi">Veículo de comunicação<br><h2 id="kVeiculo">-</h2></div>
+<div class="kpi">Assunto relacionado<br><h2 id="kTopico">-</h2></div>
 </div>
 
 <div class="grid">
@@ -110,7 +110,7 @@ a:hover{color:#2563eb;text-decoration:underline}
 <th>Data</th>
 <th>Veículo</th>
 <th>Impacto</th>
-<th>Local</th>
+<th>Local (praça)</th>
 </tr>
 </thead>
 <tbody id="tb"></tbody>
