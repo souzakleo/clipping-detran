@@ -56,6 +56,7 @@
 
     a.titlelink{color:#0f172a;text-decoration:none;font-weight:650}
     a.titlelink:hover{color:var(--primary);text-decoration:underline}
+    code{background:#f1f5f9;padding:2px 6px;border-radius:8px}
   </style>
 </head>
 
@@ -65,7 +66,7 @@
   <div class="header">
     <div>
       <h1>Clipping Detran-MA</h1>
-      <div class="sub">Base Geral (2025 a 2026)</div>
+      <div class="sub">Base Geral (2025 + 2026) • Clique no título para abrir</div>
     </div>
     <div class="pill">
       <span>📄</span>
@@ -177,19 +178,22 @@
 /* ✅ Seu link CSV (BASE_GERAL) */
 const URL_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTQDEoRILXzO3X3rUuRZJV8VaMFuxgiyaqqJbVe7wpEeOxYkoTV1Tl9oWNyK9z4vxCSCdI0Yrbxve_6/pub?gid=553568239&single=true&output=csv";
 
-let rows = [];       // linhas normalizadas (chaves fixas)
-let base = [];       // base sem impacto (para KPI %)
-let filtrados = [];  // base com impacto (para tabela/gráfico)
+/* Estado */
+let rows = [];       // linhas normalizadas
+let base = [];       // base sem impacto (KPI %)
+let filtrados = [];  // com impacto (tabela/gráficos)
 let charts = {};
 
 const $ = (id) => document.getElementById(id);
 
+/* UI */
 function setStatus(msg, kind=""){
   const el = $("status");
   el.className = "status" + (kind ? " " + kind : "");
   el.innerHTML = msg;
 }
 
+/* Normalização */
 function stripAccents(s){
   return (s ?? "").toString()
     .replace(/^\uFEFF/, "")            // remove BOM
@@ -201,7 +205,7 @@ function keyNorm(s){
     .trim()
     .toLowerCase()
     .replace(/\s+/g,"")
-    .replace(/[^a-z0-9]/g,"");         // remove parênteses e símbolos
+    .replace(/[^a-z0-9]/g,"");         // remove símbolos (parênteses etc)
 }
 function cap1(s){
   const v = (s ?? "").toString().trim();
@@ -209,11 +213,11 @@ function cap1(s){
   return v.charAt(0).toUpperCase() + v.slice(1);
 }
 
-/* Mapeia cabeçalhos reais -> campos canônicos usando "contém" */
+/* Cabeçalho -> campos canônicos (robusto) */
 function buildHeaderMap(sampleRow){
   const keys = Object.keys(sampleRow || {});
-  const map = {}; // canon -> realKey
   const normKeys = keys.map(k => ({ raw:k, nk:keyNorm(k) }));
+  const map = {};
 
   const want = {
     titulo:  ["titulo","materia","noticia"],
@@ -225,7 +229,6 @@ function buildHeaderMap(sampleRow){
     link:    ["link","url","endereco"]
   };
 
-  // procura por "igual" ou "contém"
   for(const canon of Object.keys(want)){
     for(const alt of want[canon]){
       const a = keyNorm(alt);
@@ -235,7 +238,6 @@ function buildHeaderMap(sampleRow){
   }
   return map;
 }
-
 function pick(row, map, canon){
   const rk = map[canon];
   return rk ? (row[rk] ?? "") : "";
@@ -295,7 +297,8 @@ function contar(arr, col){
   }
   return c;
 }
-function top(obj){
+/* ⚠️ Nome diferente para não conflitar com window.top */
+function topItem(obj){
   const e = Object.entries(obj).sort((a,b)=>b[1]-a[1])[0];
   return e ? e[0] : "-";
 }
@@ -319,6 +322,7 @@ function plot(id, data, type){
   });
 }
 
+/* Render */
 function render(){
   $("kTotal").textContent = String(filtrados.length);
 
@@ -334,8 +338,8 @@ function render(){
   $("kImpactoPct").textContent = `${pct}%`;
   $("kImpactoHint").textContent = `base: ${baseTotal} • impacto “${imSel}”`;
 
-  $("kVeiculo").textContent = top(contar(filtrados,"veiculo"));
-  $("kTopico").textContent = top(contar(filtrados,"topico"));
+  $("kVeiculo").textContent = topItem(contar(filtrados,"veiculo"));
+  $("kTopico").textContent = topItem(contar(filtrados,"topico"));
 
   plot("gImpacto", contar(filtrados,"impacto"), "pie");
   plot("gTopico", contar(filtrados,"topico"), "bar");
@@ -360,6 +364,7 @@ function render(){
   }).join("");
 }
 
+/* Filtros */
 function aplicarFiltros(silent=false){
   const q = $("busca").value.toLowerCase();
   const di = parseDateInput("dataIni");
@@ -384,62 +389,101 @@ function aplicarFiltros(silent=false){
   }
 }
 
-function carregar(){
-  $("btnCarregar").disabled = true;
+/* Carregar (com fetch para diagnosticar) */
+async function carregar(){
+  const btn = $("btnCarregar");
+  btn.disabled = true;
   setStatus("Carregando CSV…", "");
 
-  Papa.parse(URL_CSV, {
-    download:true,
-    header:true,
-    skipEmptyLines:true,
-    complete: (res)=>{
-      const data = res.data || [];
-      if(!data.length){
-        $("btnCarregar").disabled = false;
-        setStatus("O CSV veio vazio. Verifique se a BASE_GERAL tem dados abaixo do cabeçalho.", "err");
-        return;
-      }
-
-      const headerMap = buildHeaderMap(data[0]);
-      console.log("HeaderMap:", headerMap);
-
-      // Normaliza para chaves fixas
-      rows = data.map(row=>{
-        const titulo = pick(row, headerMap, "titulo");
-        const dataStr = pick(row, headerMap, "data");
-        return {
-          titulo,
-          dataStr,
-          _dateObj: parseDateAny(dataStr),
-          topico: pick(row, headerMap, "topico"),
-          impacto: pick(row, headerMap, "impacto"),
-          veiculo: pick(row, headerMap, "veiculo"),
-          praca: pick(row, headerMap, "praca"),
-          link: pick(row, headerMap, "link"),
-        };
-      }).filter(r => (r.titulo ?? "").toString().trim().length > 0);
-
-      if(rows.length === 0){
-        $("btnCarregar").disabled = false;
-        setStatus("Carregou, mas nenhuma linha foi reconhecida como matéria (Título vazio). Confirme se há títulos preenchidos.", "err");
-        return;
-      }
-
-      preencherSelect("fImpacto","impacto");
-      preencherSelect("fVeiculo","veiculo");
-      preencherSelect("fPraca","praca");
-
-      aplicarFiltros(true);
-
-      $("btnCarregar").disabled = false;
-      setStatus(`Dados carregados: <b>${rows.length}</b> matérias.`, "ok");
-    },
-    error: (err)=>{
-      console.error(err);
-      $("btnCarregar").disabled = false;
-      setStatus("Falha ao buscar o CSV. Abra o Console (F12) para ver o erro.", "err");
+  try{
+    const resp = await fetch(URL_CSV, { method:"GET", cache:"no-store", mode:"cors" });
+    if(!resp.ok){
+      const txt = await resp.text().catch(()=> "");
+      btn.disabled = false;
+      setStatus(
+        `Erro ao baixar CSV: <b>${resp.status}</b> ${resp.statusText}<br>` +
+        `Resposta (início): <code>${escapeHtml((txt||"").slice(0,200))}</code>`,
+        "err"
+      );
+      return;
     }
-  });
+
+    const csvText = await resp.text();
+    const preview = csvText.slice(0, 300);
+
+    if(!preview.includes(",") && !preview.includes(";")){
+      btn.disabled = false;
+      setStatus("O conteúdo retornado não parece CSV.<br>Início: <code>"+escapeHtml(preview)+"</code>", "err");
+      return;
+    }
+
+    Papa.parse(csvText, {
+      header:true,
+      skipEmptyLines:true,
+      complete:(res)=>{
+        const data = res.data || [];
+        if(!data.length){
+          btn.disabled = false;
+          setStatus("CSV carregou, mas veio sem linhas (vazio).", "err");
+          return;
+        }
+
+        const headerMap = buildHeaderMap(data[0]);
+        console.log("HeaderMap:", headerMap);
+
+        rows = data.map(row=>{
+          const titulo = pick(row, headerMap, "titulo");
+          const dataStr = pick(row, headerMap, "data");
+          return {
+            titulo,
+            dataStr,
+            _dateObj: parseDateAny(dataStr),
+            topico: pick(row, headerMap, "topico"),
+            impacto: pick(row, headerMap, "impacto"),
+            veiculo: pick(row, headerMap, "veiculo"),
+            praca: pick(row, headerMap, "praca"),
+            link: pick(row, headerMap, "link"),
+          };
+        }).filter(r => (r.titulo ?? "").toString().trim().length > 0);
+
+        if(rows.length === 0){
+          btn.disabled = false;
+          setStatus("CSV carregou, mas nenhuma matéria foi reconhecida (Título vazio).", "err");
+          return;
+        }
+
+        preencherSelect("fImpacto","impacto");
+        preencherSelect("fVeiculo","veiculo");
+        preencherSelect("fPraca","praca");
+
+        aplicarFiltros(true);
+        btn.disabled = false;
+        setStatus(`Dados carregados: <b>${rows.length}</b> matérias.`, "ok");
+      },
+      error:(err)=>{
+        console.error(err);
+        btn.disabled = false;
+        setStatus("Erro ao interpretar CSV: <code>"+escapeHtml(String(err))+"</code>", "err");
+      }
+    });
+
+  }catch(e){
+    console.error(e);
+    btn.disabled = false;
+    setStatus("Falha ao buscar CSV. Erro: <code>"+escapeHtml(String(e))+"</code>", "err");
+  }
+}
+
+/* Limpar */
+function limpar(){
+  $("busca").value = "";
+  $("dataIni").value = "";
+  $("dataFim").value = "";
+  $("fImpacto").value = "";
+  $("fVeiculo").value = "";
+  $("fPraca").value = "";
+  aplicarFiltros(true);
+  setStatus(`Filtros limpos. Exibindo: <b>${filtrados.length}</b>`, "ok");
 }
 
 /* Escape */
@@ -453,17 +497,7 @@ function escapeAttr(str){ return escapeHtml(str).replaceAll("`","&#096;"); }
 /* Eventos */
 $("btnCarregar").addEventListener("click", carregar);
 $("btnFiltrar").addEventListener("click", ()=>aplicarFiltros(false));
-$("btnLimpar").addEventListener("click", ()=>{
-  $("busca").value = "";
-  $("dataIni").value = "";
-  $("dataFim").value = "";
-  $("fImpacto").value = "";
-  $("fVeiculo").value = "";
-  $("fPraca").value = "";
-  aplicarFiltros(true);
-  setStatus(`Filtros limpos. Exibindo: <b>${filtrados.length}</b>`, "ok");
-});
-
+$("btnLimpar").addEventListener("click", limpar);
 $("busca").addEventListener("keydown",(e)=>{ if(e.key==="Enter") aplicarFiltros(false); });
 ["fImpacto","fVeiculo","fPraca","dataIni","dataFim"].forEach(id=>{
   $(id).addEventListener("change", ()=>aplicarFiltros(true));
