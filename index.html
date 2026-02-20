@@ -69,7 +69,7 @@
     </div>
     <div class="pill">
       <span>📄</span>
-      <span>Filtros + Busca + Gráficos</span>
+      <span>Busca + Filtros + Gráficos</span>
     </div>
   </div>
 
@@ -192,11 +192,16 @@ function setStatus(msg, kind=""){
 
 function stripAccents(s){
   return (s ?? "").toString()
+    .replace(/^\uFEFF/, "")            // remove BOM
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 }
 function keyNorm(s){
-  return stripAccents((s ?? "").toString().trim().toLowerCase()).replace(/\s+/g,"");
+  return stripAccents(s)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g,"")
+    .replace(/[^a-z0-9]/g,"");         // remove parênteses e símbolos
 }
 function cap1(s){
   const v = (s ?? "").toString().trim();
@@ -204,30 +209,28 @@ function cap1(s){
   return v.charAt(0).toUpperCase() + v.slice(1);
 }
 
-/* Mapeia cabeçalhos reais -> campos canônicos */
+/* Mapeia cabeçalhos reais -> campos canônicos usando "contém" */
 function buildHeaderMap(sampleRow){
   const keys = Object.keys(sampleRow || {});
   const map = {}; // canon -> realKey
+  const normKeys = keys.map(k => ({ raw:k, nk:keyNorm(k) }));
 
   const want = {
-    titulo: ["titulo","título","title","materia","matéria","noticia","notícia"],
-    data: ["data","date"],
-    topico: ["topico","tópico","assunto","tema"],
+    titulo:  ["titulo","materia","noticia"],
+    data:    ["data","date"],
+    topico:  ["topico","assunto","tema"],
     impacto: ["impacto","sentimento"],
-    veiculo: ["veiculo","veículo","fonte","midia","mídia"],
-    praca: ["praca","praça","local","cidade","municipio","município"],
-    link: ["link","url","fonteurl","endereco","endereço"]
+    veiculo: ["veiculo","fonte","midia"],
+    praca:   ["localpraca","praca","local","cidade","municipio"],
+    link:    ["link","url","endereco"]
   };
 
-  const normToReal = {};
-  for(const k of keys){
-    normToReal[keyNorm(k)] = k;
-  }
-
+  // procura por "igual" ou "contém"
   for(const canon of Object.keys(want)){
     for(const alt of want[canon]){
-      const rk = normToReal[keyNorm(alt)];
-      if(rk){ map[canon]=rk; break; }
+      const a = keyNorm(alt);
+      const found = normKeys.find(k => k.nk === a) || normKeys.find(k => k.nk.includes(a) || a.includes(k.nk));
+      if(found){ map[canon] = found.raw; break; }
     }
   }
   return map;
@@ -273,6 +276,7 @@ function inRange(dt, ini, fim){
   return true;
 }
 
+/* Selects */
 function distinct(col){
   return [...new Set(rows.map(r => cap1(r[col])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
 }
@@ -282,6 +286,7 @@ function preencherSelect(id, col){
   el.innerHTML = `<option value="">Todos</option>` + vals.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
 }
 
+/* Agregações */
 function contar(arr, col){
   const c = {};
   for(const r of arr){
@@ -391,38 +396,32 @@ function carregar(){
       const data = res.data || [];
       if(!data.length){
         $("btnCarregar").disabled = false;
-        setStatus("O CSV veio vazio. Verifique se a aba BASE_GERAL tem dados abaixo do cabeçalho.", "err");
+        setStatus("O CSV veio vazio. Verifique se a BASE_GERAL tem dados abaixo do cabeçalho.", "err");
         return;
       }
 
       const headerMap = buildHeaderMap(data[0]);
-      // Debug: mostra quais colunas encontrou
       console.log("HeaderMap:", headerMap);
 
       // Normaliza para chaves fixas
       rows = data.map(row=>{
         const titulo = pick(row, headerMap, "titulo");
         const dataStr = pick(row, headerMap, "data");
-        const objDate = parseDateAny(dataStr);
         return {
-          titulo: titulo,
-          dataStr: dataStr,
-          _dateObj: objDate,
+          titulo,
+          dataStr,
+          _dateObj: parseDateAny(dataStr),
           topico: pick(row, headerMap, "topico"),
           impacto: pick(row, headerMap, "impacto"),
           veiculo: pick(row, headerMap, "veiculo"),
           praca: pick(row, headerMap, "praca"),
-          link: pick(row, headerMap, "link")
+          link: pick(row, headerMap, "link"),
         };
       }).filter(r => (r.titulo ?? "").toString().trim().length > 0);
 
       if(rows.length === 0){
         $("btnCarregar").disabled = false;
-        setStatus(
-          "Carregou, mas nenhuma linha foi reconhecida como matéria. " +
-          "Confirme se o cabeçalho tem uma coluna de Título (ex: 'Título' ou 'Titulo').",
-          "err"
-        );
+        setStatus("Carregou, mas nenhuma linha foi reconhecida como matéria (Título vazio). Confirme se há títulos preenchidos.", "err");
         return;
       }
 
@@ -438,12 +437,12 @@ function carregar(){
     error: (err)=>{
       console.error(err);
       $("btnCarregar").disabled = false;
-      setStatus("Falha ao buscar o CSV (CORS / link / internet). Abra o Console (F12) para ver o erro.", "err");
+      setStatus("Falha ao buscar o CSV. Abra o Console (F12) para ver o erro.", "err");
     }
   });
 }
 
-/* escape */
+/* Escape */
 function escapeHtml(str){
   return (str ?? "").toString()
     .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
@@ -472,4 +471,3 @@ $("busca").addEventListener("keydown",(e)=>{ if(e.key==="Enter") aplicarFiltros(
 </script>
 </body>
 </html>
-
