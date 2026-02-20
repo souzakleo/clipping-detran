@@ -324,6 +324,7 @@ function plot(id, data, type){
 
 /* Render */
 function render(){
+filtrados.sort((a,b) => (b._dateObj?.getTime()||0) - (a._dateObj?.getTime()||0));
   $("kTotal").textContent = String(filtrados.length);
 
   const imSel = $("fImpacto").value || "Positivo";
@@ -505,3 +506,4 @@ $("busca").addEventListener("keydown",(e)=>{ if(e.key==="Enter") aplicarFiltros(
 </script>
 </body>
 </html>
+
