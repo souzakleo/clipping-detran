@@ -10,39 +10,33 @@
 
 <style>
 :root{
---bg:#eef2f7; --card:#fff; --text:#0f172a; --muted:#64748b;
---primary:#2563eb; --primary2:#0ea5e9; --border:#cbd5e1;
---shadow:0 6px 18px rgba(2,6,23,.08); --radius:14px;
+  --bg:#eef2f7; --card:#fff; --text:#0f172a; --muted:#64748b;
+  --primary:#2563eb; --primary2:#0ea5e9; --border:#cbd5e1;
+  --shadow:0 6px 18px rgba(2,6,23,.08); --radius:14px;
 }
-body{margin:0;padding:20px;font-family:Segoe UI;background:var(--bg);}
+body{margin:0;padding:20px;font-family:Segoe UI,system-ui,Arial;background:var(--bg);color:var(--text);}
 .container{max-width:1750px;margin:auto;}
 
 .header{
-background:white;
-padding:10px 20px;
-border-radius:14px;
-box-shadow:var(--shadow);
-display:flex;
-justify-content:space-between;
-align-items:center;
-margin-bottom:20px;
+  background:linear-gradient(135deg,#1e40af,#0ea5e9);
+  color:#fff;
+  padding:14px 20px;
+  border-radius:14px;
+  box-shadow:var(--shadow);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:20px;
+  gap:12px;
 }
-
-.header-title{
-font-size:24px;
-font-weight:700;
-color:#1e40af;
-}
-
-.header-logos img{
-height:45px;
-}
+.header-title{font-size:22px;font-weight:800;color:#fff;}
+.header-logos{display:flex;align-items:center;}
+.header-logos img{height:45px;}
 
 .card{background:white;padding:15px;border-radius:14px;box-shadow:var(--shadow);margin-bottom:20px;}
 .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:end;}
 .field{display:flex;flex-direction:column;font-size:12px;color:#64748b}
-select,input{padding:8px;border-radius:8px;border:1px solid #cbd5e1}
-
+select,input{padding:8px;border-radius:8px;border:1px solid #cbd5e1;min-width:180px}
 button{background:#2563eb;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer}
 button.secondary{background:#e2e8f0;color:#0f172a}
 
@@ -52,161 +46,299 @@ button.secondary{background:#e2e8f0;color:#0f172a}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:15px;}
 
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:#2563eb;color:white;padding:8px}
+th{background:#2563eb;color:white;padding:8px;text-align:left;user-select:none}
 td{padding:8px;border-top:1px solid #e2e8f0}
 a{color:#0f172a;text-decoration:none;font-weight:600}
 a:hover{color:#2563eb;text-decoration:underline}
+
+th.sortable{cursor:pointer;}
+th.sortable:hover{filter:brightness(0.95);}
+.sort-indicator{opacity:.9;font-weight:800;margin-left:6px}
+
+#status{margin-top:10px;font-size:12px;color:#475569}
 </style>
 </head>
 
 <body>
 <div class="container">
 
-<div class="header">
-<div class="header-title">Clipping Detran-MA</div>
-<div class="header-logos">
-<img src="logos.png">
-</div>
-</div>
+  <div class="header">
+    <div class="header-title">Clipping Detran-MA</div>
+    <div class="header-logos">
+      <img src="logos.png" alt="Logos Detran/MA">
+    </div>
+  </div>
 
-<div class="card">
-<div class="controls">
-<div class="field">Busca por assunto<input id="busca"></div>
-<div class="field">Data inicial<input type="date" id="dataIni"></div>
-<div class="field">Data final<input type="date" id="dataFim"></div>
-<div class="field">Impacto<select id="fImpacto"></select></div>
-<div class="field">Veículos<select id="fVeiculo"></select></div>
-<div class="field">Local (praça)<select id="fPraca"></select></div>
-<button id="btnCarregar">Carregar</button>
-<button class="secondary" id="btnFiltrar">Filtrar</button>
-<button class="secondary" id="btnLimpar">Limpar</button>
-</div>
-<div id="status"></div>
-</div>
+  <div class="card">
+    <div class="controls">
+      <div class="field">Busca por assunto<input id="busca"></div>
+      <div class="field">Data inicial<input type="date" id="dataIni"></div>
+      <div class="field">Data final<input type="date" id="dataFim"></div>
+      <div class="field">Impacto<select id="fImpacto"></select></div>
+      <div class="field">Veículos<select id="fVeiculo"></select></div>
+      <div class="field">Local (praça)<select id="fPraca"></select></div>
+      <button id="btnCarregar">Carregar</button>
+      <button class="secondary" id="btnFiltrar">Filtrar</button>
+      <button class="secondary" id="btnLimpar">Limpar</button>
+    </div>
+    <div id="status"></div>
+  </div>
 
-<div class="kpis">
-<div class="kpi">Total<br><h2 id="kTotal">0</h2></div>
-<div class="kpi"><span id="kImpactoLabel">Porcentagem Positiva</span><br><h2 id="kImpactoPct">0%</h2></div>
-<div class="kpi">Veículo de comunicação<br><h2 id="kVeiculo">-</h2></div>
-<div class="kpi">Assunto relacionado<br><h2 id="kTopico">-</h2></div>
-</div>
+  <div class="kpis">
+    <div class="kpi">Total<br><h2 id="kTotal">0</h2></div>
+    <div class="kpi"><span id="kImpactoLabel">Porcentagem Positiva</span><br><h2 id="kImpactoPct">0%</h2></div>
+    <div class="kpi">Veículo de comunicação<br><h2 id="kVeiculo">-</h2></div>
+    <div class="kpi">Assunto relacionado<br><h2 id="kTopico">-</h2></div>
+  </div>
 
-<div class="grid">
-<div class="card"><canvas id="gImpacto"></canvas></div>
-<div class="card"><canvas id="gTopico"></canvas></div>
-</div>
+  <div class="grid">
+    <div class="card"><canvas id="gImpacto"></canvas></div>
+    <div class="card"><canvas id="gTopico"></canvas></div>
+  </div>
 
-<div class="card">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap;">
+      <h3 style="margin:0;">Lista de matérias</h3>
+      <button id="btnOrdenar" class="secondary">Mais recente ↓</button>
+    </div>
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-<h3>Lista de matérias</h3>
-<button id="btnOrdenar" class="secondary">Mais recente ↓</button>
-</div>
-
-<table>
-<thead>
-<tr>
-<th>Título</th>
-<th>Data</th>
-<th>Veículo</th>
-<th>Impacto</th>
-<th>Local (praça)</th>
-</tr>
-</thead>
-<tbody id="tb"></tbody>
-</table>
-</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Título</th>
+          <th id="thData" class="sortable">Data <span id="indData" class="sort-indicator">↓</span></th>
+          <th>Veículo</th>
+          <th>Impacto</th>
+          <th>Local (praça)</th>
+        </tr>
+      </thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div>
 
 </div>
 
 <script>
-
 const URL_CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vTQDEoRILXzO3X3rUuRZJV8VaMFuxgiyaqqJbVe7wpEeOxYkoTV1Tl9oWNyK9z4vxCSCdI0Yrbxve_6/pub?gid=553568239&single=true&output=csv";
 
-let dados=[],base=[],filtrados=[],ordemDesc=true,charts={};
+let dados=[], base=[], filtrados=[], ordemDesc=true, charts={};
 
-function norm(v){return (v||"").trim();}
-function parseData(s){const p=s.split("/");if(p.length===3)return new Date(p[2],p[1]-1,p[0]);return new Date(s)}
+const $ = (id)=>document.getElementById(id);
+
+// Normalização forte (remove espaços extras e caracteres invisíveis)
+function norm(v){
+  return (v ?? "")
+    .toString()
+    .replace(/\uFEFF/g,"")   // BOM
+    .replace(/\u00A0/g," ")  // espaço "duro"
+    .trim();
+}
+
+// Normalização para comparação (case-insensitive)
+function normCmp(v){
+  return norm(v).toLowerCase();
+}
+
+// Parse de data dd/mm/aaaa e fallback
+function parseData(s){
+  const v = norm(s);
+  if(!v) return null;
+  const p = v.split("/");
+  if(p.length===3){
+    const d = new Date(parseInt(p[2],10), parseInt(p[1],10)-1, parseInt(p[0],10));
+    return isNaN(d) ? null : d;
+  }
+  const d = new Date(v);
+  return isNaN(d) ? null : d;
+}
+
+function setStatus(msg){
+  $("status").innerHTML = msg || "";
+}
 
 function carregar(){
-Papa.parse(URL_CSV,{download:true,header:true,skipEmptyLines:true,complete:r=>{
-dados=r.data.filter(x=>norm(x["Título"]));
-preencher();
-filtrar();
-}});
+  setStatus("Carregando dados…");
+  Papa.parse(URL_CSV,{
+    download:true,
+    header:true,
+    skipEmptyLines:true,
+    complete:r=>{
+      // Segurança: remove linhas sem título
+      dados = (r.data || []).filter(x => norm(x["Título"]).length > 0);
+      preencher();
+      filtrar();
+      setStatus(`Dados carregados: <b>${dados.length}</b> matérias.`);
+    },
+    error: err=>{
+      console.error(err);
+      setStatus("Erro ao carregar o CSV. Verifique se o link está público e publicado como CSV.");
+    }
+  });
 }
 
 function preencher(){
-["Impacto","Veículo","Local (praça)"].forEach(c=>{
-const id=c.includes("Local")?"fPraca":c==="Veículo"?"fVeiculo":"fImpacto";
-const vals=[...new Set(dados.map(d=>norm(d[c])).filter(Boolean))];
-document.getElementById(id).innerHTML="<option value=''>Todos</option>"+vals.map(v=>`<option>${v}</option>`).join("");
-});
+  // Impacto
+  {
+    const vals=[...new Set(dados.map(d=>norm(d["Impacto"])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    $("fImpacto").innerHTML = "<option value=''>Todos</option>" + vals.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
+  }
+  // Veículo
+  {
+    const vals=[...new Set(dados.map(d=>norm(d["Veículo"])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    $("fVeiculo").innerHTML = "<option value=''>Todos</option>" + vals.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
+  }
+  // Local (praça)  ✅ agora normalizado
+  {
+    const colName = "Local (praça)";
+    const vals=[...new Set(dados.map(d=>norm(d[colName])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    $("fPraca").innerHTML = "<option value=''>Todos</option>" + vals.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
+  }
 }
 
 function filtrar(){
-const b=busca.value.toLowerCase();
-const vi=fVeiculo.value;
-const pr=fPraca.value;
-const im=fImpacto.value;
-const di=dataIni.value?new Date(dataIni.value):null;
-const df=dataFim.value?new Date(dataFim.value):null;
+  const b = normCmp($("busca").value);
+  const vi = normCmp($("fVeiculo").value);
+  const pr = normCmp($("fPraca").value);
+  const im = normCmp($("fImpacto").value);
 
-base=dados.filter(d=>{
-const dt=parseData(d.Data);
-return (!b||d.Título.toLowerCase().includes(b))&&(!vi||d["Veículo"]===vi)&&(!pr||d["Local (praça)"]===pr)&&(!di||dt>=di)&&(!df||dt<=df);
-});
+  const di = $("dataIni").value ? new Date($("dataIni").value+"T00:00:00") : null;
+  const df = $("dataFim").value ? new Date($("dataFim").value+"T23:59:59") : null;
 
-filtrados=base.filter(d=>!im||d.Impacto===im);
-render();
+  base = dados.filter(d=>{
+    const titulo = normCmp(d["Título"]);
+    const dt = parseData(d["Data"]); // pode ser null
+    const veiculo = normCmp(d["Veículo"]);
+    const praca = normCmp(d["Local (praça)"]);
+
+    const okBusca = !b || titulo.includes(b);
+    const okVeiculo = !vi || veiculo === vi;
+    const okPraca = !pr || praca === pr;
+
+    const okData =
+      (!di && !df) ? true :
+      (!dt) ? false :
+      (!di || dt >= di) && (!df || dt <= df);
+
+    return okBusca && okVeiculo && okPraca && okData;
+  });
+
+  filtrados = base.filter(d=>{
+    const impacto = normCmp(d["Impacto"]);
+    return !im || impacto === im;
+  });
+
+  render();
 }
 
-function limpar(){busca.value="";dataIni.value="";dataFim.value="";fImpacto.value="";fVeiculo.value="";fPraca.value="";filtrar();}
+function limpar(){
+  $("busca").value="";
+  $("dataIni").value="";
+  $("dataFim").value="";
+  $("fImpacto").value="";
+  $("fVeiculo").value="";
+  $("fPraca").value="";
+  filtrar();
+}
 
-function contar(arr,col){const c={};arr.forEach(d=>{const v=d[col]||"Sem";c[v]=(c[v]||0)+1});return c;}
-function topItem(o){return Object.entries(o).sort((a,b)=>b[1]-a[1])[0]?.[0]||"-";}
+function contar(arr,col){
+  const c={};
+  arr.forEach(d=>{
+    const v = norm(d[col]) || "Sem";
+    c[v]=(c[v]||0)+1;
+  });
+  return c;
+}
+
+function topItem(o){
+  return Object.entries(o).sort((a,b)=>b[1]-a[1])[0]?.[0] || "-";
+}
+
+function atualizarIndicadoresOrdenacao(){
+  $("btnOrdenar").innerText = ordemDesc ? "Mais recente ↓" : "Mais antigo ↑";
+  $("indData").innerText = ordemDesc ? "↓" : "↑";
+}
 
 function render(){
+  // Ordenação por Data (desc/asc)
+  filtrados.sort((a,b)=>{
+    const da = parseData(a["Data"])?.getTime() || 0;
+    const db = parseData(b["Data"])?.getTime() || 0;
+    return ordemDesc ? (db-da) : (da-db);
+  });
 
-filtrados.sort((a,b)=>{
-const da=parseData(a.Data)?.getTime()||0;
-const db=parseData(b.Data)?.getTime()||0;
-return ordemDesc?(db-da):(da-db);
-});
+  atualizarIndicadoresOrdenacao();
 
-kTotal.innerText=filtrados.length;
-const impSel=fImpacto.value||"Positivo";
-const pct=Math.round((contar(base,"Impacto")[impSel]||0)/(base.length||1)*100);
-kImpactoLabel.innerText="% "+impSel;kImpactoPct.innerText=pct+"%";
-kVeiculo.innerText=topItem(contar(filtrados,"Veículo"));
-kTopico.innerText=topItem(contar(filtrados,"Tópico"));
+  $("kTotal").innerText = filtrados.length;
 
-if(charts.i)charts.i.destroy();
-charts.i=new Chart(gImpacto,{type:"pie",data:{labels:Object.keys(contar(filtrados,"Impacto")),datasets:[{data:Object.values(contar(filtrados,"Impacto"))}]}});
+  const impSel = norm($("fImpacto").value) || "Positivo";
+  const pct = Math.round((contar(base,"Impacto")[impSel]||0)/(base.length||1)*100);
+  $("kImpactoLabel").innerText = "% " + impSel;
+  $("kImpactoPct").innerText = pct + "%";
 
-if(charts.t)charts.t.destroy();
-charts.t=new Chart(gTopico,{type:"bar",data:{labels:Object.keys(contar(filtrados,"Tópico")),datasets:[{data:Object.values(contar(filtrados,"Tópico"))}]}});
+  $("kVeiculo").innerText = topItem(contar(filtrados,"Veículo"));
+  $("kTopico").innerText = topItem(contar(filtrados,"Tópico"));
 
-tb.innerHTML=filtrados.map(d=>`
-<tr>
-<td><a href="${d.Link}" target="_blank">${d.Título}</a></td>
-<td>${d.Data}</td>
-<td>${d["Veículo"]}</td>
-<td>${d.Impacto}</td>
-<td>${d["Local (praça)"]}</td>
-</tr>`).join("");
+  // Gráficos
+  if(charts.i) charts.i.destroy();
+  charts.i=new Chart($("gImpacto"),{
+    type:"pie",
+    data:{
+      labels:Object.keys(contar(filtrados,"Impacto")),
+      datasets:[{data:Object.values(contar(filtrados,"Impacto"))}]
+    }
+  });
+
+  if(charts.t) charts.t.destroy();
+  charts.t=new Chart($("gTopico"),{
+    type:"bar",
+    data:{
+      labels:Object.keys(contar(filtrados,"Tópico")),
+      datasets:[{data:Object.values(contar(filtrados,"Tópico"))}]
+    },
+    options:{scales:{y:{beginAtZero:true}}}
+  });
+
+  // Tabela
+  $("tb").innerHTML = filtrados.map(d=>`
+    <tr>
+      <td><a href="${escapeAttr(norm(d["Link"]))}" target="_blank" rel="noopener">${escapeHtml(norm(d["Título"]))}</a></td>
+      <td>${escapeHtml(norm(d["Data"]))}</td>
+      <td>${escapeHtml(norm(d["Veículo"]))}</td>
+      <td>${escapeHtml(norm(d["Impacto"]))}</td>
+      <td>${escapeHtml(norm(d["Local (praça)"]))}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="5">Sem dados</td></tr>`;
 }
 
-btnCarregar.onclick=carregar;
-btnFiltrar.onclick=filtrar;
-btnLimpar.onclick=limpar;
+// Botões
+$("btnCarregar").onclick = carregar;
+$("btnFiltrar").onclick = filtrar;
+$("btnLimpar").onclick = limpar;
 
-btnOrdenar.onclick=()=>{
-ordemDesc=!ordemDesc;
-btnOrdenar.innerText=ordemDesc?"Mais recente ↓":"Mais antigo ↑";
-render();
+// Botão de ordenar
+$("btnOrdenar").onclick = ()=>{
+  ordemDesc = !ordemDesc;
+  render();
 };
 
+// Clique no cabeçalho Data para ordenar
+$("thData").onclick = ()=>{
+  ordemDesc = !ordemDesc;
+  render();
+};
+
+// Escape seguro
+function escapeHtml(str){
+  return (str ?? "").toString()
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+function escapeAttr(str){
+  return escapeHtml(str).replaceAll("`","&#096;");
+}
 </script>
 </body>
 </html>
