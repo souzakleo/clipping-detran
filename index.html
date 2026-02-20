@@ -68,8 +68,8 @@
       <div class="sub">Base Geral (2025 + 2026) • Clique no título para abrir</div>
     </div>
     <div class="pill">
-      <span>📄 Colunas:</span>
-      <span><b>Título</b>, Data, Tópico, Impacto, Veículo, Local (praça), <b>Link</b></span>
+      <span>📄</span>
+      <span>Filtros + Busca + Gráficos</span>
     </div>
   </div>
 
@@ -113,7 +113,7 @@
     </div>
 
     <div id="status" class="status">
-      Clique em <b>Carregar</b> para buscar os dados da BASE_GERAL.
+      Clique em <b>Carregar</b> para buscar os dados.
     </div>
   </div>
 
@@ -177,9 +177,9 @@
 /* ✅ Seu link CSV (BASE_GERAL) */
 const URL_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTQDEoRILXzO3X3rUuRZJV8VaMFuxgiyaqqJbVe7wpEeOxYkoTV1Tl9oWNyK9z4vxCSCdI0Yrbxve_6/pub?gid=553568239&single=true&output=csv";
 
-let dados = [];
-let base = [];
-let filtrados = [];
+let rows = [];       // linhas normalizadas (chaves fixas)
+let base = [];       // base sem impacto (para KPI %)
+let filtrados = [];  // base com impacto (para tabela/gráfico)
 let charts = {};
 
 const $ = (id) => document.getElementById(id);
@@ -190,15 +190,57 @@ function setStatus(msg, kind=""){
   el.innerHTML = msg;
 }
 
-function norm(v){ return (v ?? "").toString().trim(); }
+function stripAccents(s){
+  return (s ?? "").toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+function keyNorm(s){
+  return stripAccents((s ?? "").toString().trim().toLowerCase()).replace(/\s+/g,"");
+}
 function cap1(s){
-  const v = norm(s);
-  if(!v) return v;
+  const v = (s ?? "").toString().trim();
+  if(!v) return "";
   return v.charAt(0).toUpperCase() + v.slice(1);
 }
 
-function parseDataAny(s){
-  const v = norm(s);
+/* Mapeia cabeçalhos reais -> campos canônicos */
+function buildHeaderMap(sampleRow){
+  const keys = Object.keys(sampleRow || {});
+  const map = {}; // canon -> realKey
+
+  const want = {
+    titulo: ["titulo","título","title","materia","matéria","noticia","notícia"],
+    data: ["data","date"],
+    topico: ["topico","tópico","assunto","tema"],
+    impacto: ["impacto","sentimento"],
+    veiculo: ["veiculo","veículo","fonte","midia","mídia"],
+    praca: ["praca","praça","local","cidade","municipio","município"],
+    link: ["link","url","fonteurl","endereco","endereço"]
+  };
+
+  const normToReal = {};
+  for(const k of keys){
+    normToReal[keyNorm(k)] = k;
+  }
+
+  for(const canon of Object.keys(want)){
+    for(const alt of want[canon]){
+      const rk = normToReal[keyNorm(alt)];
+      if(rk){ map[canon]=rk; break; }
+    }
+  }
+  return map;
+}
+
+function pick(row, map, canon){
+  const rk = map[canon];
+  return rk ? (row[rk] ?? "") : "";
+}
+
+/* Datas */
+function parseDateAny(s){
+  const v = (s ?? "").toString().trim();
   if(!v) return null;
 
   if(/^\d{4}-\d{2}-\d{2}/.test(v)){
@@ -208,22 +250,20 @@ function parseDataAny(s){
   const m = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if(m){
     const dd = parseInt(m[1],10);
-    const mm = parseInt(m[2],10) - 1;
+    const mm = parseInt(m[2],10)-1;
     const yy = parseInt(m[3],10);
-    const d = new Date(yy, mm, dd);
+    const d = new Date(yy,mm,dd);
     return isNaN(d) ? null : d;
   }
   const d = new Date(v);
   return isNaN(d) ? null : d;
 }
-
 function parseDateInput(id){
   const v = $(id).value;
   if(!v) return null;
   const d = new Date(v + "T00:00:00");
   return isNaN(d) ? null : d;
 }
-
 function inRange(dt, ini, fim){
   if(!ini && !fim) return true;
   if(!dt) return false;
@@ -234,42 +274,34 @@ function inRange(dt, ini, fim){
 }
 
 function distinct(col){
-  return [...new Set(dados.map(d => cap1(d[col])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  return [...new Set(rows.map(r => cap1(r[col])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
 }
-
 function preencherSelect(id, col){
   const el = $(id);
   const vals = distinct(col);
   el.innerHTML = `<option value="">Todos</option>` + vals.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
 }
 
-function preencherFiltros(){
-  preencherSelect("fImpacto","Impacto");
-  preencherSelect("fVeiculo","Veículo");
-  preencherSelect("fPraca","Praça");
-}
-
 function contar(arr, col){
   const c = {};
-  arr.forEach(d=>{
-    const v = cap1(d[col]) || "Sem dado";
+  for(const r of arr){
+    const v = cap1(r[col]) || "Sem dado";
     c[v] = (c[v] || 0) + 1;
-  });
+  }
   return c;
 }
-
 function top(obj){
   const e = Object.entries(obj).sort((a,b)=>b[1]-a[1])[0];
   return e ? e[0] : "-";
 }
 
+/* Gráficos */
 const palette = ["#2563eb","#0ea5e9","#22c55e","#f59e0b","#ef4444","#a855f7","#14b8a6","#fb7185","#84cc16","#f97316"];
-
 function plot(id, data, type){
   if(charts[id]) charts[id].destroy();
   const labels = Object.keys(data);
   const values = Object.values(data);
-  const colors = labels.map((_,i)=>palette[i % palette.length]);
+  const colors = labels.map((_,i)=>palette[i%palette.length]);
 
   charts[id] = new Chart($(id),{
     type,
@@ -282,6 +314,47 @@ function plot(id, data, type){
   });
 }
 
+function render(){
+  $("kTotal").textContent = String(filtrados.length);
+
+  const imSel = $("fImpacto").value || "Positivo";
+  const label = $("fImpacto").value ? `% ${imSel}` : "% Positivas";
+
+  const baseTotal = base.length;
+  const impBase = contar(base, "impacto");
+  const alvo = impBase[imSel] || 0;
+  const pct = baseTotal ? Math.round((alvo/baseTotal)*100) : 0;
+
+  $("kImpactoLabel").textContent = label;
+  $("kImpactoPct").textContent = `${pct}%`;
+  $("kImpactoHint").textContent = `base: ${baseTotal} • impacto “${imSel}”`;
+
+  $("kVeiculo").textContent = top(contar(filtrados,"veiculo"));
+  $("kTopico").textContent = top(contar(filtrados,"topico"));
+
+  plot("gImpacto", contar(filtrados,"impacto"), "pie");
+  plot("gTopico", contar(filtrados,"topico"), "bar");
+
+  const tb = $("tb");
+  if(filtrados.length === 0){
+    tb.innerHTML = `<tr><td colspan="5">Sem dados</td></tr>`;
+    return;
+  }
+  tb.innerHTML = filtrados.map(r=>{
+    const titulo = (r.titulo || "").toString();
+    const link = (r.link || "").toString().trim();
+    return `
+      <tr>
+        <td>${link ? `<a class="titlelink" href="${escapeAttr(link)}" target="_blank" rel="noopener">${escapeHtml(titulo)}</a>` : escapeHtml(titulo)}</td>
+        <td>${escapeHtml(r.dataStr || "")}</td>
+        <td>${escapeHtml(cap1(r.veiculo))}</td>
+        <td>${escapeHtml(cap1(r.impacto))}</td>
+        <td>${escapeHtml(cap1(r.praca))}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
 function aplicarFiltros(silent=false){
   const q = $("busca").value.toLowerCase();
   const di = parseDateInput("dataIni");
@@ -290,94 +363,98 @@ function aplicarFiltros(silent=false){
   const pr = $("fPraca").value;
   const im = $("fImpacto").value;
 
-  // base sem impacto (para KPI %)
-  base = dados.filter(d=>{
-    const titulo = norm(d["Título"]).toLowerCase();
-    const dt = parseDataAny(d["Data"]);
+  base = rows.filter(r=>{
+    const titulo = (r.titulo || "").toString().toLowerCase();
     return (!q || titulo.includes(q)) &&
-           (!ve || cap1(d["Veículo"]) === ve) &&
-           (!pr || cap1(d["Praça"]) === pr) &&
-           inRange(dt, di, df);
+      (!ve || cap1(r.veiculo) === ve) &&
+      (!pr || cap1(r.praca) === pr) &&
+      inRange(r._dateObj, di, df);
   });
 
-  // filtrados com impacto (para tabela/gráficos)
-  filtrados = base.filter(d=> !im || cap1(d["Impacto"]) === im);
+  filtrados = base.filter(r=> !im || cap1(r.impacto) === im);
 
   render();
-
   if(!silent){
     setStatus(`Filtro aplicado. Base: <b>${base.length}</b> • Exibindo: <b>${filtrados.length}</b>`, "ok");
   }
 }
 
-function render(){
-  // KPIs
-  $("kTotal").textContent = String(filtrados.length);
-
-  const imSel = $("fImpacto").value || "Positivo";
-  const label = $("fImpacto").value ? `% ${imSel}` : "% Positivas";
-  const baseTotal = base.length;
-  const impBase = contar(base, "Impacto");
-  const alvo = impBase[imSel] || 0;
-  const pct = baseTotal ? Math.round((alvo/baseTotal)*100) : 0;
-
-  $("kImpactoLabel").textContent = label;
-  $("kImpactoPct").textContent = `${pct}%`;
-  $("kImpactoHint").textContent = `base: ${baseTotal} • impacto “${imSel}”`;
-
-  $("kVeiculo").textContent = top(contar(filtrados,"Veículo"));
-  $("kTopico").textContent = top(contar(filtrados,"Tópico"));
-
-  // gráficos
-  plot("gImpacto", contar(filtrados,"Impacto"), "pie");
-  plot("gTopico", contar(filtrados,"Tópico"), "bar");
-
-  // tabela (título clicável)
-  const tb = $("tb");
-  if(filtrados.length === 0){
-    tb.innerHTML = `<tr><td colspan="5">Sem dados</td></tr>`;
-    return;
-  }
-
-  tb.innerHTML = filtrados.map(d=>{
-    const titulo = norm(d["Título"]);
-    const link = norm(d["Link"]);
-    return `
-      <tr>
-        <td>${link ? `<a class="titlelink" href="${escapeAttr(link)}" target="_blank" rel="noopener">${escapeHtml(titulo)}</a>` : escapeHtml(titulo)}</td>
-        <td>${escapeHtml(norm(d["Data"]))}</td>
-        <td>${escapeHtml(cap1(d["Veículo"]))}</td>
-        <td>${escapeHtml(cap1(d["Impacto"]))}</td>
-        <td>${escapeHtml(cap1(d["Praça"]))}</td>
-      </tr>
-    `;
-  }).join("");
-}
-
 function carregar(){
   $("btnCarregar").disabled = true;
-  setStatus("Carregando dados do Google Sheets…", "");
+  setStatus("Carregando CSV…", "");
 
   Papa.parse(URL_CSV, {
     download:true,
     header:true,
     skipEmptyLines:true,
-    complete: (r)=>{
-      dados = (r.data || []).filter(x => norm(x["Título"]).length > 0);
-      preencherFiltros();
+    complete: (res)=>{
+      const data = res.data || [];
+      if(!data.length){
+        $("btnCarregar").disabled = false;
+        setStatus("O CSV veio vazio. Verifique se a aba BASE_GERAL tem dados abaixo do cabeçalho.", "err");
+        return;
+      }
+
+      const headerMap = buildHeaderMap(data[0]);
+      // Debug: mostra quais colunas encontrou
+      console.log("HeaderMap:", headerMap);
+
+      // Normaliza para chaves fixas
+      rows = data.map(row=>{
+        const titulo = pick(row, headerMap, "titulo");
+        const dataStr = pick(row, headerMap, "data");
+        const objDate = parseDateAny(dataStr);
+        return {
+          titulo: titulo,
+          dataStr: dataStr,
+          _dateObj: objDate,
+          topico: pick(row, headerMap, "topico"),
+          impacto: pick(row, headerMap, "impacto"),
+          veiculo: pick(row, headerMap, "veiculo"),
+          praca: pick(row, headerMap, "praca"),
+          link: pick(row, headerMap, "link")
+        };
+      }).filter(r => (r.titulo ?? "").toString().trim().length > 0);
+
+      if(rows.length === 0){
+        $("btnCarregar").disabled = false;
+        setStatus(
+          "Carregou, mas nenhuma linha foi reconhecida como matéria. " +
+          "Confirme se o cabeçalho tem uma coluna de Título (ex: 'Título' ou 'Titulo').",
+          "err"
+        );
+        return;
+      }
+
+      preencherSelect("fImpacto","impacto");
+      preencherSelect("fVeiculo","veiculo");
+      preencherSelect("fPraca","praca");
+
       aplicarFiltros(true);
+
       $("btnCarregar").disabled = false;
-      setStatus(`Dados carregados: <b>${dados.length}</b> registros.`, "ok");
+      setStatus(`Dados carregados: <b>${rows.length}</b> matérias.`, "ok");
     },
     error: (err)=>{
       console.error(err);
       $("btnCarregar").disabled = false;
-      setStatus("Erro ao carregar CSV. Verifique se o link está público e publicado como CSV.", "err");
+      setStatus("Falha ao buscar o CSV (CORS / link / internet). Abra o Console (F12) para ver o erro.", "err");
     }
   });
 }
 
-function limpar(){
+/* escape */
+function escapeHtml(str){
+  return (str ?? "").toString()
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+}
+function escapeAttr(str){ return escapeHtml(str).replaceAll("`","&#096;"); }
+
+/* Eventos */
+$("btnCarregar").addEventListener("click", carregar);
+$("btnFiltrar").addEventListener("click", ()=>aplicarFiltros(false));
+$("btnLimpar").addEventListener("click", ()=>{
   $("busca").value = "";
   $("dataIni").value = "";
   $("dataFim").value = "";
@@ -386,20 +463,7 @@ function limpar(){
   $("fPraca").value = "";
   aplicarFiltros(true);
   setStatus(`Filtros limpos. Exibindo: <b>${filtrados.length}</b>`, "ok");
-}
-
-// escape
-function escapeHtml(str){
-  return (str ?? "").toString()
-    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
-}
-function escapeAttr(str){ return escapeHtml(str).replaceAll("`","&#096;"); }
-
-// eventos
-$("btnCarregar").addEventListener("click", carregar);
-$("btnFiltrar").addEventListener("click", ()=>aplicarFiltros(false));
-$("btnLimpar").addEventListener("click", limpar);
+});
 
 $("busca").addEventListener("keydown",(e)=>{ if(e.key==="Enter") aplicarFiltros(false); });
 ["fImpacto","fVeiculo","fPraca","dataIni","dataFim"].forEach(id=>{
